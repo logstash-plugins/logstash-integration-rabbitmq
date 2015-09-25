@@ -26,6 +26,18 @@ describe LogStash::PluginMixins::RabbitMQConnection do
   }
   let(:hare_info) { instance.instance_variable_get(:@hare_info) }
 
+  describe "rabbitmq_settings" do
+    let(:rabbitmq_settings) { super.merge({"connection_timeout" => 123, "heartbeat" => 456}) }
+
+    it "should set the timeout to the expected value" do
+      expect(instance.rabbitmq_settings[:timeout]).to eql(rabbitmq_settings["connection_timeout"])
+    end
+
+    it "should set heartbeat to the expected value" do
+      expect(instance.rabbitmq_settings[:heartbeat]).to eql(rabbitmq_settings["heartbeat"])
+    end
+  end
+
   context "when connected" do
     let(:connection) { double("MarchHare Connection") }
     let(:channel) { double("Channel") }

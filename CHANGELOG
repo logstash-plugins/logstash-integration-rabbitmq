@@ -1,0 +1,6 @@
+* 2.0.0
+  - Make LS2 compatible
+  - Add heartbeat setting
+  - Add connect_timeout setting
+* 1.0.1
+  - Initial Release
