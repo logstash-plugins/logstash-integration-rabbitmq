@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
 
   s.name            = 'logstash-mixin-rabbitmq_connection'
-  s.version         = '2.0.0'
+  s.version         = '2.0.1'
   s.licenses        = ['Apache License (2.0)']
   s.summary         = "Common functionality for RabbitMQ plugins"
   s.description     = "This is used to provide configuration options and connection settings for logstash plugins working with RabbitMQ"
