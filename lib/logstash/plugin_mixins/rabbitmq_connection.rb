@@ -52,7 +52,7 @@ module LogStash
         config :connection_timeout, :validate => :number
 
         # Heartbeat delay in seconds. Default is 0 (no heartbeats)
-        config :heartbeat, :validate => :number, :default => 0
+        config :heartbeat, :validate => :number
 
         # Passive queue creation? Useful for checking queue existance without modifying server state
         config :passive, :validate => :boolean, :default => false
