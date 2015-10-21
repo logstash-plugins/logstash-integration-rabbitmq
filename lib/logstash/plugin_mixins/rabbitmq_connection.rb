@@ -48,10 +48,10 @@ module LogStash
         # Time in seconds to wait before retrying a connection
         config :connect_retry_interval, :validate => :number, :default => 1
 
-        # The default connection timeout; zero means wait indefinitely
+        # The default connection timeout in milliseconds. If not specified the timeout is infinite.
         config :connection_timeout, :validate => :number
 
-        # Heartbeat delay in seconds. Default is 0 (no heartbeats)
+        # Heartbeat delay in seconds. If unspecified no heartbeats will be sent
         config :heartbeat, :validate => :number
 
         # Passive queue creation? Useful for checking queue existance without modifying server state
@@ -84,8 +84,8 @@ module LogStash
           :pass => @password ? @password.value : "guest",
         }
 
-        s[:timeout] = @connection_timeout if @connection_timeout
-        s[:heartbeat] = @heartbeat if @heartbeat
+        s[:timeout] = @connection_timeout || 0
+        s[:heartbeat] = @heartbeat || 0
         s[:tls] = @ssl if @ssl
         @rabbitmq_settings = s
       end
