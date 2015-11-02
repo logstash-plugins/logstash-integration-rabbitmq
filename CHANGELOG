@@ -1,3 +1,5 @@
+* 2.1.1 
+  - Make rake vendor run, for jarvis
 * 2.1.0
   - Add prefetch_count config option
 * 2.0.3
