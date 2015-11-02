@@ -57,9 +57,6 @@ module LogStash
         # Passive queue creation? Useful for checking queue existance without modifying server state
         config :passive, :validate => :boolean, :default => false
 
-        # Prefetch count. Number of messages to prefetch
-        config :prefetch_count, :validate => :number, :default => 256
-
         # Extra queue arguments as an array.
         # To make a RabbitMQ queue mirrored, use: `{"x-ha-policy" => "all"}`
         config :arguments, :validate => :array, :default => {}
@@ -142,8 +139,6 @@ module LogStash
         connection.on_unblocked { @logger.warn("RabbitMQ output unblocked!") }
 
         channel = connection.create_channel
-        channel.prefetch = prefetch_count
-
         @logger.info("Connected to RabbitMQ at #{rabbitmq_settings[:host]}")
 
         HareInfo.new(connection, channel)

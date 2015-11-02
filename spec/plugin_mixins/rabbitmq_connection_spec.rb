@@ -48,7 +48,6 @@ describe LogStash::PluginMixins::RabbitMQConnection do
       allow(connection).to receive(:create_channel).and_return(channel)
       allow(connection).to receive(:on_blocked)
       allow(connection).to receive(:on_unblocked)
-      allow(channel).to receive(:prefetch=).with(kind_of(Numeric))
 
       instance.register
     end
@@ -78,10 +77,6 @@ describe LogStash::PluginMixins::RabbitMQConnection do
 
       it "should set the channel correctly" do
         expect(subject.channel).to eql(channel)
-      end
-
-      it "should set prefetch correctly" do
-        expect(subject.channel.prefetch=50).to eql(50)
       end
     end
   end

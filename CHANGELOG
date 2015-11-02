@@ -1,3 +1,5 @@
+* 2.2.0
+  - Rollback the changes in 2.1.0 . prefetch_count only belongs in the input plugin
 * 2.1.0
   - Add prefetch_count config option
 * 2.0.3
