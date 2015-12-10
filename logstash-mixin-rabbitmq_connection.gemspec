@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "logstash-core", ">= 2.0.0.beta2", "< 3.0.0"
 
   s.platform = RUBY_PLATFORM
-  s.add_runtime_dependency 'march_hare', ['~> 2.11.0'] #(MIT license)
+  s.add_runtime_dependency 'march_hare', ['~> 2.15.0'] #(MIT license)
   s.add_runtime_dependency 'stud', '~> 0.0.22'
 
   s.add_development_dependency 'logstash-devutils'

@@ -1,3 +1,5 @@
+* 2.3.0
+  - Bump march_mare version to 2.15.0 to fix perms issue internal to march hare gem (.jar not installed with o+r perms)
 * 2.2.0
   - Rollback the changes in 2.1.0 . prefetch_count only belongs in the input plugin
 * 2.1.0
