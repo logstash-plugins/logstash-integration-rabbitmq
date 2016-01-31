@@ -30,7 +30,10 @@ module LogStash
         # RabbitMQ password
         config :password, :validate => :password, :default => "guest"
 
-        # The vhost to use. If you don't know what this is, leave the default.
+        # The vhost (virtual host) to use. If you don't know what this
+        # is, leave the default. With the exception of the default
+        # vhost ("/"), names of vhosts should not begin with a forward
+        # slash.
         config :vhost, :validate => :string, :default => "/"
 
         # Enable or disable SSL
