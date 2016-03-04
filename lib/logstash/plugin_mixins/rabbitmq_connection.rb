@@ -8,7 +8,7 @@ require "java"
 module LogStash
   module PluginMixins
     module RabbitMQConnection
-      EXCHANGE_TYPES = ["fanout", "direct", "topic"]
+      EXCHANGE_TYPES = ["fanout", "direct", "topic", "x-consistent-hash", "x-modulus-hash"]
 
       HareInfo = Struct.new(:connection, :channel, :exchange, :queue)
 
