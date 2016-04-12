@@ -62,11 +62,11 @@ module LogStash
         config :passive, :validate => :boolean, :default => false
 
         # TLS certifcate path
-        config :tls_certificate_path, :validate => :string, :default => ""
+        config :tls_certificate_path, :validate => :path
 
         # TLS certificate password
-        config :tls_certificate_password, :validate => :string, :default => ""
-        
+        config :tls_certificate_password, :validate => :string
+
         # Extra queue arguments as an array.
         # To make a RabbitMQ queue mirrored, use: `{"x-ha-policy" => "all"}`
         config :arguments, :validate => :array, :default => {}

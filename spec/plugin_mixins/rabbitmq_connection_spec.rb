@@ -2,6 +2,7 @@
 require "logstash/devutils/rspec/spec_helper"
 require "logstash/pipeline"
 require "logstash/plugin_mixins/rabbitmq_connection"
+require "stud/temporary"
 
 class TestPlugin < LogStash::Outputs::Base
   include LogStash::PluginMixins::RabbitMQConnection
@@ -27,7 +28,15 @@ describe LogStash::PluginMixins::RabbitMQConnection do
   let(:hare_info) { instance.instance_variable_get(:@hare_info) }
 
   describe "rabbitmq_settings" do
-    let(:rabbitmq_settings) { super.merge({"connection_timeout" => 123, "heartbeat" => 456}) }
+    let(:file) { Stud::Temporary.file }
+    let(:path) { file.path }
+    after { File.unlink(path)}
+
+    let(:rabbitmq_settings) { super.merge({"connection_timeout" => 123,
+                                           "heartbeat" => 456,
+                                           "ssl" => "TLS1.2",
+                                           "tls_certificate_path" => path,
+                                           "tls_certificate_password" => "123"}) }
 
     it "should set the timeout to the expected value" do
       expect(instance.rabbitmq_settings[:timeout]).to eql(rabbitmq_settings["connection_timeout"])
@@ -35,6 +44,18 @@ describe LogStash::PluginMixins::RabbitMQConnection do
 
     it "should set heartbeat to the expected value" do
       expect(instance.rabbitmq_settings[:heartbeat]).to eql(rabbitmq_settings["heartbeat"])
+    end
+
+    it "should set tls to the expected value" do
+      expect(instance.rabbitmq_settings[:tls]).to eql(rabbitmq_settings["ssl"])
+    end
+
+    it "should set tls_certificate_path to the expected value" do
+      expect(instance.rabbitmq_settings[:tls_certificate_path]).to eql(rabbitmq_settings["tls_certificate_path"])
+    end
+
+    it "should set tls_certificate_password to the expected value" do
+      expect(instance.rabbitmq_settings[:tls_certificate_password]).to eql(rabbitmq_settings["tls_certificate_password"])
     end
   end
 
