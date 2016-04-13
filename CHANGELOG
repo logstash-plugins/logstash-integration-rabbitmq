@@ -1,3 +1,6 @@
+* 2.4.0
+  - Add SSL/TLS Support
+  - Add support for "x-consistent-hash" and "x-modulus-hash" exchanges
 * 2.3.1
   - use logstash-core-plugin-api as dependency instead of logstash-core directly
 * 2.3.0
