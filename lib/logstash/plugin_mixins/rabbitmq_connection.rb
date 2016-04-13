@@ -38,7 +38,7 @@ module LogStash
 
         # Enable or disable SSL
         # Specify TLS version if using TLS e.g "TLSv1.2"
-        config :ssl, :validate => :string, :default => false
+        config :ssl, :validate => :string
 
         # Validate SSL certificate
         config :verify_ssl, :validate => :boolean, :default => false
