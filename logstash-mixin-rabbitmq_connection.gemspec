@@ -16,7 +16,7 @@ Gem::Specification.new do |s|
   s.test_files = s.files.grep(%r{^(test|spec|features)/})
 
   # Gem dependencies
-  s.add_runtime_dependency "logstash-core-plugin-api", "~> 1.0"
+  s.add_runtime_dependency "logstash-core-plugin-api", "~> 2.0"
 
   s.platform = RUBY_PLATFORM
   s.add_runtime_dependency 'march_hare', ['~> 2.15.0'] #(MIT license)
