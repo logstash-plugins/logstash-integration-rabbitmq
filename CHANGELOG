@@ -1,4 +1,4 @@
-* 2.5.0
+* 4.1.0
   - Fix SSL option to be boolean once again
   - Add separate ssl_version parameter
   - Mark verify_ssl parameter as obsolete since it never worked
