@@ -1,3 +1,8 @@
+* 4.1.0
+  - Fix SSL option to be boolean once again
+  - Add separate ssl_version parameter
+  - Mark verify_ssl parameter as obsolete since it never worked
+  - Better checks for SSL argument consistency
 * 2.4.0
   - Add SSL/TLS Support
   - Add support for "x-consistent-hash" and "x-modulus-hash" exchanges
