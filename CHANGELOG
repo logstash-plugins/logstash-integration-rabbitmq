@@ -1,3 +1,5 @@
+* 4.1.1
+  - Remove internal Logstash deps that were not necessary
 * 4.1.0
   - Fix SSL option to be boolean once again
   - Add separate ssl_version parameter
