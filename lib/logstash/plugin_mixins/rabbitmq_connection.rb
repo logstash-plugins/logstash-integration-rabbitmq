@@ -139,7 +139,7 @@ module LogStash
           # Best guess is to help the user understand that there is probably
           # some kind of configuration problem causing the error, but we
           # can't really offer any more detailed hints :\
-          "An unknown error occurred. RabbitMQ gave us no hints as to the cause. Maybe this is a configuration error (invalid vhost, for example)?"
+          "An unknown error occurred. RabbitMQ gave no hints as to the cause. Maybe this is a configuration error (invalid vhost, for example). I recommend checking the RabbitMQ server logs for clues about this failure."
         else
           e.message
         end
