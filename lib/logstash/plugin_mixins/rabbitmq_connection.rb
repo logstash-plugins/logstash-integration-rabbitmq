@@ -130,10 +130,16 @@ module LogStash
       def connect!
         @hare_info = connect() unless @hare_info # Don't duplicate the conn!
       rescue MarchHare::Exception, java.io.IOException => e
-        @logger.error("RabbitMQ connection error, will retry.",
-                      :message => e.message,
-                      :exception => e.class.name,
-                      :backtrace => e.backtrace)
+        if @logger.debug?
+          @logger.error("RabbitMQ connection error, will retry.",
+                        :error_message => e.message,
+                        :exception => e.class.name,
+                        :backtrace => e.backtrace)
+        else
+          @logger.error("RabbitMQ connection error, will retry.",
+                        :error_message => e.message,
+                        :exception => e.class.name)
+        end
 
         sleep_for_retry
         retry
