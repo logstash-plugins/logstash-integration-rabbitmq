@@ -129,11 +129,31 @@ module LogStash
 
       def connect!
         @hare_info = connect() unless @hare_info # Don't duplicate the conn!
-      rescue MarchHare::Exception => e
-        @logger.error("RabbitMQ connection error, will retry.",
-                      :message => e.message,
-                      :exception => e.class.name,
-                      :backtrace => e.backtrace)
+      rescue MarchHare::Exception, java.io.IOException => e
+        error_message = if e.message.empty? && e.is_a?(java.io.IOException)
+          # IOException with an empty message is probably an instance of
+          # these problems:
+          # https://github.com/logstash-plugins/logstash-output-rabbitmq/issues/52
+          # https://github.com/rabbitmq/rabbitmq-java-client/issues/100
+          #
+          # Best guess is to help the user understand that there is probably
+          # some kind of configuration problem causing the error, but we
+          # can't really offer any more detailed hints :\
+          "An unknown error occurred. RabbitMQ gave no hints as to the cause. Maybe this is a configuration error (invalid vhost, for example). I recommend checking the RabbitMQ server logs for clues about this failure."
+        else
+          e.message
+        end
+
+        if @logger.debug?
+          @logger.error("RabbitMQ connection error, will retry.",
+                        :error_message => error_message,
+                        :exception => e.class.name,
+                        :backtrace => e.backtrace)
+        else
+          @logger.error("RabbitMQ connection error, will retry.",
+                        :error_message => error_message,
+                        :exception => e.class.name)
+        end
 
         sleep_for_retry
         retry
