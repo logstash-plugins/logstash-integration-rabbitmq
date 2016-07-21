@@ -1,3 +1,5 @@
+* 4.1.2
+  - Retry the connection attempt if there is an IO Exception.
 * 4.1.1
   - Remove internal Logstash deps that were not necessary
 * 4.1.0
