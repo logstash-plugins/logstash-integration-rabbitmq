@@ -19,7 +19,9 @@ module LogStash
 
       def setup_rabbitmq_connection_config
         # RabbitMQ server address
-        config :host, :validate => :string, :required => true
+        config :host, :validate => :string, :default => ""
+
+        config :hosts, :validate => :array, :default => {}
 
         # RabbitMQ port to connect on
         config :port, :validate => :number, :default => 5672
@@ -100,6 +102,7 @@ module LogStash
         s = {
           :vhost => @vhost,
           :host  => @host,
+          :hosts => @hosts,
           :port  => @port,
           :user  => @user,
           :automatic_recovery => @automatic_recovery,
@@ -121,6 +124,10 @@ module LogStash
 
           s[:tls_certificate_path] = cert_path
           s[:tls_certificate_password] = cert_pass
+        end
+
+        if @host.to_s.empty? and @hosts.empty?
+          raise LogStash::ConfigurationError, "RabbitMQ Hosts need to be specified in either the host option or the hosts option"
         end
 
 
