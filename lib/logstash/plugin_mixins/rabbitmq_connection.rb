@@ -18,10 +18,17 @@ module LogStash
       end
 
       def setup_rabbitmq_connection_config
-        # RabbitMQ server address
-        config :host, :validate => :string, :default => ""
-
-        config :hosts, :validate => :array, :default => {}
+        # RabbitMQ server address(es) 
+        # host can either be a single host, or a list of hosts
+        # i.e.
+        #   host => "localhost"
+        # or
+        #   host => ["host01", "host02]
+        #
+        # if multiple hosts are provided on the initial connection and any subsequent
+        # recovery attempts of the hosts is chosen at random and connected to.
+        # Note that only one host connection is active at a time.
+        config :host, :validate => :string, :required => true , :list => true
 
         # RabbitMQ port to connect on
         config :port, :validate => :number, :default => 5672
@@ -101,8 +108,7 @@ module LogStash
 
         s = {
           :vhost => @vhost,
-          :host  => @host,
-          :hosts => @hosts,
+          :hosts => @host,
           :port  => @port,
           :user  => @user,
           :automatic_recovery => @automatic_recovery,
@@ -125,11 +131,6 @@ module LogStash
           s[:tls_certificate_path] = cert_path
           s[:tls_certificate_password] = cert_pass
         end
-
-        if @host.to_s.empty? and @hosts.empty?
-          raise LogStash::ConfigurationError, "RabbitMQ Hosts need to be specified in either the host option or the hosts option"
-        end
-
 
         @rabbitmq_settings = s
       end
