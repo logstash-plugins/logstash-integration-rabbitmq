@@ -96,6 +96,7 @@ describe LogStash::PluginMixins::RabbitMQConnection do
       allow(connection).to receive(:create_channel).and_return(channel)
       allow(connection).to receive(:on_blocked)
       allow(connection).to receive(:on_unblocked)
+      allow(connection).to receive(:on_shutdown)
 
       instance.register
     end

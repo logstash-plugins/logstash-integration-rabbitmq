@@ -18,7 +18,7 @@ module LogStash
       end
 
       def setup_rabbitmq_connection_config
-        # RabbitMQ server address(es) 
+        # RabbitMQ server address(es)
         # host can either be a single host, or a list of hosts
         # i.e.
         #   host => "localhost"
@@ -201,14 +201,31 @@ module LogStash
 
         connection = MarchHare.connect(rabbitmq_settings)
 
-
-        connection.on_blocked { @logger.warn("RabbitMQ output blocked! Check your RabbitMQ instance!") }
-        connection.on_unblocked { @logger.warn("RabbitMQ output unblocked!") }
+        connection.on_shutdown do |conn, cause|
+           @logger.warn("RabbitMQ connection was closed!",
+                          :url => connection_url(conn),
+                          :automatic_recovery => @automatic_recovery,
+                          :cause => cause)
+        end
+        connection.on_blocked do
+          @logger.warn("RabbitMQ connection blocked! Check your RabbitMQ instance!",
+                       :url => connection_url(connection))
+        end
+        connection.on_unblocked do
+          @logger.warn("RabbitMQ connection unblocked!", :url => connection_url(connection))
+        end
 
         channel = connection.create_channel
         @logger.info("Connected to RabbitMQ at #{rabbitmq_settings[:host]}")
 
         HareInfo.new(connection, channel)
+      end
+
+      # Mostly used for printing debug logs
+      def connection_url(connection)
+        user_pass = connection.user ? "#{connection.user}:XXXXXX@" : ""
+        protocol = params["ssl"] ? "amqps" : "amqp"
+        "#{protocol}://#{user_pass}#{connection.host}:#{connection.port}#{connection.vhost}"
       end
 
       def sleep_for_retry
