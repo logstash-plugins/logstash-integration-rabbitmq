@@ -1,3 +1,8 @@
+* 4.1.3
+- Bump march_hare version to 2.19.0 to fix reconnection failures with
+  proxies. See
+  https://github.com/logstash-plugins/logstash-input-rabbitmq/issues/76 for
+  more info
 * 4.1.2
   - Retry the connection attempt if there is an IO Exception.
 * 4.1.1
