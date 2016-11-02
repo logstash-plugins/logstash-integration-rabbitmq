@@ -1,3 +1,5 @@
+* 4.2.1
+- Bump march_hare version to 2.20.0 to fix reconnection issues
 * 4.2.0
 - Include URL of server when logging errors
 - Add warning log when connection is severed
