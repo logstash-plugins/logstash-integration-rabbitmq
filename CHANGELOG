@@ -1,3 +1,5 @@
+* 4.2.2
+- Bump march hare to 2.22.0 to properly convert LongString to String
 * 4.2.1
 - Bump march_hare version to 2.20.0 to fix reconnection issues
 * 4.2.0
