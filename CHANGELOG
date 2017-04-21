@@ -1,3 +1,5 @@
+* 4.3.0
+- Bump march hare to 3.0.0
 * 4.2.2
 - Bump march hare to 2.22.0 to properly convert LongString to String
 * 4.2.1
