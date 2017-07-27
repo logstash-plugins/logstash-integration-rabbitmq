@@ -64,8 +64,7 @@ module LogStash
         # Password for the encrypted PKCS12 (.p12) certificate file specified in ssl_certificate_path
         config :ssl_certificate_password, :validate => :string
 
-        # Enable or disable logging
-        config :debug, :validate => :boolean, :default => false, :deprecated => "Use the logstash --debug flag for this instead."
+        config :debug, :validate => :boolean, :obsolete => "Use the logstash --debug flag for this instead."
 
         # Set this to automatically recover from a broken connection. You almost certainly don't want to override this!!!
         config :automatic_recovery, :validate => :boolean, :default => true
@@ -83,10 +82,10 @@ module LogStash
         config :passive, :validate => :boolean, :default => false
 
         # TLS certifcate path
-        config :tls_certificate_path, :validate => :path, :deprecated => true
+        config :tls_certificate_path, :validate => :path, :obsolete => "This setting is obsolete. Use ssl_certificate_path instead"
 
         # TLS certificate password
-        config :tls_certificate_password, :validate => :string, :deprecated => true
+        config :tls_certificate_password, :validate => :string, :obsolete => "This setting is obsolete. Use ssl_certificate_password instead"
 
         # Extra queue arguments as an array.
         # To make a RabbitMQ queue mirrored, use: `{"x-ha-policy" => "all"}`
@@ -121,8 +120,8 @@ module LogStash
         if @ssl
           s[:tls] = @ssl_version
 
-          cert_path = @ssl_certificate_path || @tls_certificate_path
-          cert_pass = @ssl_certificate_password || @tls_certificate_password
+          cert_path = @ssl_certificate_path
+          cert_pass = @ssl_certificate_password
 
           if !!cert_path ^ !!cert_pass
             raise LogStash::ConfigurationError, "RabbitMQ requires both ssl_certificate_path AND ssl_certificate_password to be set!"
