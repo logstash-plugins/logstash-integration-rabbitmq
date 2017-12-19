@@ -17,7 +17,7 @@ Gem::Specification.new do |s|
   s.test_files = s.files.grep(%r{^(test|spec|features)/})
 
   s.platform = RUBY_PLATFORM
-  s.add_runtime_dependency 'march_hare', ['~> 3.0.0'] #(MIT license)
+  s.add_runtime_dependency 'march_hare', ['~> 3.0'] #(MIT license)
   s.add_runtime_dependency 'stud', '~> 0.0.22'
 
   s.add_development_dependency 'logstash-devutils'
