@@ -1,6 +1,6 @@
 ## 5.0.1
    - Relax constraint on march hare to allow 3.x [#44](https://github.com/logstash-plugins/logstash-mixin-rabbitmq_connection/issues/44)
-   - Validate validate :ssl_certificate_password as a password [#43](https://github.com/logstash-plugins/logstash-mixin-rabbitmq_connection/issues/43)
+   - Validate :ssl_certificate_password as a password [#43](https://github.com/logstash-plugins/logstash-mixin-rabbitmq_connection/issues/43)
 ## 5.0.0
    - Mark deprecated options `debug`, `tls_certificate_path` and `tls_certificate_password` as obsolete
 ## 4.3.0
