@@ -62,7 +62,7 @@ module LogStash
         config :ssl_certificate_path, :validate => :path
 
         # Password for the encrypted PKCS12 (.p12) certificate file specified in ssl_certificate_path
-        config :ssl_certificate_password, :validate => :string
+        config :ssl_certificate_password, :validate => :password
 
         config :debug, :validate => :boolean, :obsolete => "Use the logstash --debug flag for this instead."
 
@@ -121,7 +121,7 @@ module LogStash
           s[:tls] = @ssl_version
 
           cert_path = @ssl_certificate_path
-          cert_pass = @ssl_certificate_password
+          cert_pass = @ssl_certificate_password.value
 
           if !!cert_path ^ !!cert_pass
             raise LogStash::ConfigurationError, "RabbitMQ requires both ssl_certificate_path AND ssl_certificate_password to be set!"
