@@ -1,3 +1,5 @@
+## 5.0.2
+   - Bug Fix: undefined method `value' for nil:NilClass with SSL enabled, but no certificates provided [#109](https://github.com/logstash-plugins/logstash-input-rabbitmq/issues/109)
 ## 5.0.1
    - Relax constraint on march hare to allow 3.x [#44](https://github.com/logstash-plugins/logstash-mixin-rabbitmq_connection/issues/44)
    - Validate :ssl_certificate_password as a password [#43](https://github.com/logstash-plugins/logstash-mixin-rabbitmq_connection/issues/43)

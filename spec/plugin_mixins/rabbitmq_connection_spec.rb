@@ -68,6 +68,17 @@ describe LogStash::PluginMixins::RabbitMQConnection do
     end
   end
 
+  describe "ssl enabled, but no verification" do
+    let(:rabbitmq_settings) { super.merge({"connection_timeout" => 123,
+                                           "heartbeat" => 456,
+                                           "ssl" => true}) }
+
+    it "should not have any certificates set" do
+      expect(instance.rabbitmq_settings[:tls_certificate_password]).to be nil
+      expect(instance.rabbitmq_settings[:tls_certificate_path]).to be nil
+    end
+
+  end
   describe "rabbitmq_settings multiple hosts" do
     let(:file) { Stud::Temporary.file }
     let(:path) { file.path }

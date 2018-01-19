@@ -121,7 +121,7 @@ module LogStash
           s[:tls] = @ssl_version
 
           cert_path = @ssl_certificate_path
-          cert_pass = @ssl_certificate_password.value
+          cert_pass = @ssl_certificate_password.value if @ssl_certificate_password
 
           if !!cert_path ^ !!cert_pass
             raise LogStash::ConfigurationError, "RabbitMQ requires both ssl_certificate_path AND ssl_certificate_password to be set!"
