@@ -1,3 +1,6 @@
+## Unreleased
+  - Fix an issue with custom port assignment, in which the custom port was not being applied when more than one host was supplied [#12](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/12)
+
 ## 7.0.3
   - Refactor: scope (and remove unused) java imports [#29](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/29)
 

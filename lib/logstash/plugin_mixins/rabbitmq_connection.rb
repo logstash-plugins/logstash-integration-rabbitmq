@@ -104,10 +104,10 @@ module LogStash
       def rabbitmq_settings
         return @rabbitmq_settings if @rabbitmq_settings
 
+
         s = {
           :vhost => @vhost,
-          :hosts => @host,
-          :port  => @port,
+          :addresses => addresses_from_hosts_and_port(@host, @port),
           :user  => @user,
           :automatic_recovery => @automatic_recovery,
           :pass => @password ? @password.value : "guest",
@@ -132,6 +132,11 @@ module LogStash
 
         @rabbitmq_settings = s
       end
+
+      def addresses_from_hosts_and_port(hosts, port)
+        hosts.map {|host| host.include?(':') ? host : "#{host}:#{port}"}
+      end
+
 
       def connect!
         @hare_info = connect() unless @hare_info # Don't duplicate the conn!

@@ -14,18 +14,34 @@ end
 
 describe LogStash::PluginMixins::RabbitMQConnection do
   let(:klass) { TestPlugin }
+  let(:default_port) { 5672 }
   let(:host) { "localhost" }
-  let(:port) { 5672 }
+  let(:port) { default_port }
   let(:rabbitmq_settings) {
     {
-      "host" => host,
-      "port" => port,
+      "host" => host
     }
   }
   let(:instance) {
     klass.new(rabbitmq_settings)
   }
   let(:hare_info) { instance.instance_variable_get(:@hare_info) }
+
+  shared_examples_for 'it sets the addresses correctly' do
+    let(:file) { Stud::Temporary.file }
+    let(:path) { file.path }
+    let(:host) {%w(host01 host02 host03)}
+
+    it "should set addresses to the expected value" do
+      host.each_with_index do |each_host, index|
+        expect(instance.rabbitmq_settings[:addresses][index]).to eql("#{each_host}:#{port}")
+      end
+    end
+
+    it "should insert the correct number of address entries" do
+      expect(instance.rabbitmq_settings[:addresses].length).to eql(host.count)
+    end
+  end
 
   describe "rabbitmq_settings" do
     let(:file) { Stud::Temporary.file }
@@ -59,12 +75,13 @@ describe LogStash::PluginMixins::RabbitMQConnection do
       expect(instance.rabbitmq_settings[:tls_certificate_password]).to eql(rabbitmq_settings["ssl_certificate_password"])
     end
 
-    it "should set hosts to the expected value " do
-      expect(instance.rabbitmq_settings[:hosts][0]).to eql(host)
-    end
+    it_behaves_like 'it sets the addresses correctly'
 
-    it "should only insert a single host entry" do
-      expect(instance.rabbitmq_settings[:hosts].length).to eql(1)
+    context 'with a custom port' do
+      let(:port) { 123 }
+      let(:rabbitmq_settings) { super.merge({"port" => port})}
+
+      it_behaves_like 'it sets the addresses correctly'
     end
   end
 
@@ -79,21 +96,25 @@ describe LogStash::PluginMixins::RabbitMQConnection do
     end
 
   end
-  describe "rabbitmq_settings multiple hosts" do
-    let(:file) { Stud::Temporary.file }
-    let(:path) { file.path }
-    after { File.unlink(path)}
 
-    let(:rabbitmq_settings) { super.merge({"host" => ["host01", "host02", "host03"]}) }
+  describe "rabbitmq_settings with multiple hosts" do
+    it_behaves_like 'it sets the addresses correctly'
 
-    it "should set hosts to the expected value" do
-      expect(instance.rabbitmq_settings[:hosts][0]).to eql("host01")
-      expect(instance.rabbitmq_settings[:hosts][1]).to eql("host02")
-      expect(instance.rabbitmq_settings[:hosts][2]).to eql("host03")
+    context 'with a custom port'  do
+      let(:port) { 999 }
+      let(:rabbitmq_settings) { super.merge({"port" => port})}
+
+      it_behaves_like 'it sets the addresses correctly'
     end
 
-    it "should insert 3 host entries" do
-      expect(instance.rabbitmq_settings[:hosts].length).to eql(3)
+    context 'when ports are set in the host definition' do
+      let(:host) { %w(host01:4444 host02:4445 host03:4446)}
+
+      it "should set the address correctly" do
+        expect(instance.rabbitmq_settings[:addresses][0]).to eql("host01:4444")
+        expect(instance.rabbitmq_settings[:addresses][1]).to eql("host02:4445")
+        expect(instance.rabbitmq_settings[:addresses][2]).to eql("host03:4446")
+      end
     end
   end
 
