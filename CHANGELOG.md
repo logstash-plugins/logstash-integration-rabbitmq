@@ -1,3 +1,6 @@
+## Unreleased
+  - Fixes bug where failing to establish initial connection resulted in a pipeline that refused to shut down ([#11](https://github.com/logstash-plugins/logstash-integration-rabbitmq/issues/11))
+
 ## 7.0.3
   - Refactor: scope (and remove unused) java imports [#29](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/29)
 
