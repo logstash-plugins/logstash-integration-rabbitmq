@@ -1,3 +1,6 @@
+## 5.1.0
+   - Updated `march_hare` dependency to `4.x`, which enables consumers to reliably manage a connection blocked/unblocked state machine that survives connection recovery.
+   - Removed support for Logstash 5.x since `march_hare` >= 3.x is not compatible.
 ## 5.0.2
    - Bug Fix: undefined method `value' for nil:NilClass with SSL enabled, but no certificates provided [#109](https://github.com/logstash-plugins/logstash-input-rabbitmq/issues/109)
 ## 5.0.1
