@@ -1,5 +1,5 @@
 # encoding: utf-8
-require 'logstash/plugin_mixins/rabbitmq_connection'
+require_relative '../plugin_mixins/rabbitmq_connection'
 require 'logstash/inputs/threadable'
 require 'logstash/event'
 java_import java.util.concurrent.ArrayBlockingQueue

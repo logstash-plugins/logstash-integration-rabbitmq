@@ -1,6 +1,6 @@
 # encoding: UTF-8
 require "logstash/pipeline"
-require "logstash/plugin_mixins/rabbitmq_connection"
+require_relative '../plugin_mixins/rabbitmq_connection'
 java_import java.util.concurrent.TimeoutException
 java_import com.rabbitmq.client.AlreadyClosedException
 
