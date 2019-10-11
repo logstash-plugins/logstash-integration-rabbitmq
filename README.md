@@ -1,6 +1,6 @@
 # Logstash Plugin
 
-[![Travis Build Status](https://travis-ci.org/logstash-plugins/logstash-input-rabbitmq.svg)](https://travis-ci.org/logstash-plugins/logstash-input-rabbitmq)
+[![Travis Build Status](https://travis-ci.org/logstash-plugins/logstash-integration-rabbitmq.svg)](https://travis-ci.org/logstash-plugins/logstash-integration-rabbitmq)
 
 This is a plugin for [Logstash](https://github.com/elastic/logstash).
 
