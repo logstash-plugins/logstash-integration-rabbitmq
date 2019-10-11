@@ -3,6 +3,7 @@ reports, or in general have helped logstash along its way.
 
 Contributors:
 * Avishai Ish-Shalom (avishai-ish-shalom)
+* Colin Surprenant (colinsurprenant)
 * Jonathan Van Eenwyk (jdve)
 * Jordan Sissel (jordansissel)
 * João Duarte (jsvd)
@@ -14,7 +15,11 @@ Contributors:
 * Richard Pijnenburg (electrical)
 * Suyog Rao (suyograo)
 * Tim Potter (tpot)
-* avleen
+* Avleen Vig (avleen)
+* Kurt Hurtado (kurtado)
+* Marc Fournier (mfournier)
+* Sebastian Schmelzer (ssc-)
+* Ry Biesemeyer (yaauie)
 
 Note: If you've sent us patches, bug reports, or otherwise contributed to
 Logstash, and you aren't on the list above and want to be, please let us know

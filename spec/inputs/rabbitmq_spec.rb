@@ -49,7 +49,8 @@ describe LogStash::Inputs::RabbitMQ do
     end
 
     it "should default the codec to JSON" do
-      expect(instance.codec).to be_a(LogStash::Codecs::JSON)
+      expect(instance.codec).to_not be_nil
+      expect(instance.codec.config_name).to eq "json"
     end
 
     describe "#connect!" do
