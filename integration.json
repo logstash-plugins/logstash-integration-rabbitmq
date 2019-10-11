@@ -1,0 +1,1 @@
+{"name":"logstash-integration-rabbitmq","plugins":["logstash-input-rabbitmq","logstash-output-rabbitmq"]}
