@@ -6,3 +6,4 @@
      - [RabbitMQ Output Plugin @5.1.1](https://github.com/logstash-plugins/logstash-output-rabbitmq/blob/v5.1.1/CHANGELOG.md)
   - Absorbed connection mixin dependency; independent changelog history for
     the mixin can be found here: [RabbitMQ Connection Mixin @5.1.0](https://github.com/logstash-plugins/logstash-mixin-rabbitmq_connection/blob/v5.1.0/CHANGELOG.md)
+  - In the Output plugin, when a connection is flagged as blocked, back-pressure is now propagated to the pipeline until the connection is either unblocked or recovered, preventing runaway writes to blocked connections ([#1](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/1))
