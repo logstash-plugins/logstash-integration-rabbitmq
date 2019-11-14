@@ -1,3 +1,6 @@
+## 7.0.1
+  - Improves Input Plugin documentation to better align with upstream guidance [#4](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/4)
+
 ## 7.0.0
   - Initial release of the RabbitMQ Integration Plugin, which combines
     previously-separate RabbitMQ plugins and shared dependencies into a single
