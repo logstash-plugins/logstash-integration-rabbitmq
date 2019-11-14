@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name            = 'logstash-integration-rabbitmq'
-  s.version         = '7.0.0'
+  s.version         = '7.0.1'
   s.licenses        = ['Apache License (2.0)']
   s.summary         = "Integration with RabbitMQ - input and output plugins"
   s.description     = "This gem is a Logstash plugin required to be installed on top of the Logstash core pipeline "+
