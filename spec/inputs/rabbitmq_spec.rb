@@ -181,7 +181,7 @@ describe "with a live server", :integration => true do
   end
 
   it "should have the correct prefetch value" do
-    expect(instance.instance_variable_get(:@hare_info).channel.prefetch).to eql(256)
+    expect(instance.instance_variable_get(:@hare_info).channel.prefetch).to eql(255)
   end
 
   describe "receiving a message with a queue + exchange specified" do
