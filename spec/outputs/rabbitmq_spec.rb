@@ -83,17 +83,66 @@ describe LogStash::Outputs::RabbitMQ do
         before do
           allow(exchange).to receive(:publish).with(any_args)
           allow(event).to receive(:sprintf).with(key).and_return(sprinted_key)
-          instance.send(:publish, event, encoded_event)
         end
 
         it "should send the correct message" do
+          instance.send(:publish, event, encoded_event)
           expect(exchange).to have_received(:publish).with(encoded_event, anything)
         end
 
         it "should send the correct metadata" do
           expected_metadata = {:routing_key => sprinted_key, :properties => {:persistent => persistent }}
 
+          instance.send(:publish, event, encoded_event)
+
           expect(exchange).to have_received(:publish).with(anything, expected_metadata)
+        end
+
+        context 'with message_properties' do
+          let(:rabbitmq_settings) { super().merge("message_properties" => message_properties) }
+          let(:message_properties) { Hash.new }
+          context 'priority' do
+            let(:message_properties) { super().merge("priority" => priority) }
+            context 'as literal Integer value' do
+              let(:priority) { 3 }
+              it 'publishes with the constant-value priority' do
+                instance.send(:publish, event, encoded_event)
+                expect(exchange).to have_received(:publish).with(anything, hash_including(:properties => hash_including(:priority => 3)))
+              end
+            end
+
+            context 'as literal String value' do
+              let(:priority) { "7" }
+              it 'publishes with the constant-value priority' do
+                instance.send(:publish, event, encoded_event)
+                expect(exchange).to have_received(:publish).with(anything, hash_including(:properties => hash_including(:priority => 7)))
+              end
+            end
+
+            context 'as template value' do
+              let(:priority) { "%{[@metadata][priority]}" }
+              context 'when event expands template value' do
+                before do
+                  expect(event).to receive(:sprintf).with(priority).and_return("31")
+                end
+
+                it 'publishes with the priority extracted from the event' do
+                 instance.send(:publish, event, encoded_event)
+                 expect(exchange).to have_received(:publish).with(anything, hash_including(:properties => hash_including(:priority => 31)))
+                end
+              end
+              context 'when event cannot expand template value' do
+                before do
+                  expect(event).to receive(:sprintf).with(priority).and_return(priority)
+                end
+
+                it 'publishes with the priority of zero (`0`)' do
+                 instance.send(:publish, event, encoded_event)
+                 expect(exchange).to have_received(:publish).with(anything, hash_including(:properties => hash_including(:priority => 0)))
+                end
+              end
+            end
+          end
         end
       end
 

@@ -1,3 +1,6 @@
+## Unreleased
+  - Add support in Output plugin for `sprintf` templates in values provided to `message_properties` ([#8](https://github.com/logstash-plugins/logstash-integration-rabbitmq/issues/8))
+
 ## 7.0.3
   - Refactor: scope (and remove unused) java imports [#29](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/29)
 
