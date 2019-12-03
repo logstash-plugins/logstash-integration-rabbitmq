@@ -118,7 +118,7 @@ module LogStash
           march_hare_connection.on_unblocked do
             executor.remove_back_pressure('connection flagged as unblocked')
           end
-          march_hare_connection.on_recovery_started do
+          march_hare_connection.on_recovery_start do
             executor.engage_back_pressure("connection is being recovered")
           end
           march_hare_connection.on_recovery do

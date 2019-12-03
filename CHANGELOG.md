@@ -1,3 +1,6 @@
+## 7.0.2
+  - Fixes issue in Output where failure to register connection reovery hooks prevented the output from starting
+
 ## 7.0.1
   - Improves Input Plugin documentation to better align with upstream guidance [#4](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/4)
 
