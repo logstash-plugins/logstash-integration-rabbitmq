@@ -47,7 +47,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'stud', '~> 0.0.22'
   s.add_runtime_dependency 'back_pressure', '~> 1.0'
 
-  s.add_development_dependency 'logstash-devutils'
+  s.add_development_dependency 'logstash-devutils', '~>2.0'
   s.add_development_dependency 'logstash-input-generator'
   s.add_development_dependency 'logstash-codec-plain'
 end

@@ -133,14 +133,15 @@ describe LogStash::Outputs::RabbitMQ do
 end
 
 
-describe "with a live server", :integration => true do
+describe "LogStash::Outputs::RabbitMQ with a live server", :integration => true do
+  let(:rabbitmq_host) { ENV["RABBITMQ_HOST"] || "127.0.0.1" }
   let(:klass) { LogStash::Outputs::RabbitMQ }
   let(:exchange) { "myexchange" }
   let(:exchange_type) { "topic" }
   let(:priority) { 34 }
   let(:default_plugin_config) {
     {
-      "host" => "127.0.0.1",
+      "host" => rabbitmq_host,
       "exchange" => exchange,
       "exchange_type" => exchange_type,
       "key" => "foo",

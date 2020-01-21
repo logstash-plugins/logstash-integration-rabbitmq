@@ -129,9 +129,10 @@ describe LogStash::Inputs::RabbitMQ do
   end
 end
 
-describe "with a live server", :integration => true do
+describe "LogStash::Inputs::RabbitMQ with a live server", :integration => true do
   let(:klass) { LogStash::Inputs::RabbitMQ }
-  let(:config) { {"host" => "127.0.0.1", "auto_delete" => true, "codec" => "plain", "add_field" => {"[@metadata][foo]" => "bar"} } }
+  let(:rabbitmq_host) { ENV["RABBITMQ_HOST"] || "127.0.0.1" }
+  let(:config) { {"host" => rabbitmq_host, "auto_delete" => true, "codec" => "plain", "add_field" => {"[@metadata][foo]" => "bar"} } }
   let(:instance) { klass.new(config) }
   let(:hare_info) { instance.instance_variable_get(:@hare_info) }
   let(:output_queue) { Queue.new }
@@ -237,7 +238,7 @@ describe "with a live server", :integration => true do
         expect(event).to include("@metadata")
         expect(event.get("@metadata")).to include("rabbitmq_properties")
 
-        props = event.get("[@metadata][rabbitmq_properties")
+        props = event.get("[@metadata][rabbitmq_properties]")
         expect(props["app-id"]).to eq(app_id)
         expect(props["delivery-mode"]).to eq(1)
         expect(props["exchange"]).to eq(exchange_name)
@@ -274,6 +275,7 @@ describe "with a live server", :integration => true do
   end
 
   describe LogStash::Inputs::RabbitMQ do
+    require "logstash/devutils/rspec/shared_examples"
     it_behaves_like "an interruptible input plugin"
   end
 end
