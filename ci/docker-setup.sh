@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 
- # This is intended to be run the plugin's root directory. `ci/unit/docker-test.sh`
+# This is intended to be run from the plugin's root directory. `ci/docker-test.sh`
 # Ensure you have Docker installed locally and set the ELASTIC_STACK_VERSION environment variable.
+# - ELASTIC_STACK_VERSION: an exact version (e.g., "7.5.1"), or a MAJOR.x branch specifier (e.g., "7.x")
+# - SNAPSHOT: (optional) when $ELASTIC_STACK_VERSION is MAJOR.x, selects an unreleased snapshot from that branch
+# - TEST_MODE: (optional) a valid test mode for this plugin (default: "unit", unless overridden by $INTEGRATION)
+# - INTEGRATION: (optional) a value of "true" changes the default value of $TEST_MODE to "integration"
 set -e
+
+# TEST_MODE should be one of "unit" or "integration" (defaults to "unit" unless INTEGRATION=true)
+: "${TEST_MODE:=$([[ "${INTEGRATION}" = "true" ]] && echo "integration" || echo "unit")}"
+export TEST_MODE
 
  VERSION_URL="https://raw.githubusercontent.com/elastic/logstash/master/ci/logstash_releases.json"
 
@@ -51,5 +59,5 @@ fi
     rm Gemfile.lock
 fi
 
- docker-compose -f ci/unit/docker-compose.yml down
-docker-compose -f ci/unit/docker-compose.yml build
+docker-compose --file "ci/common/docker-compose.yml" --file "ci/${TEST_MODE}/docker-compose.override.yml" down
+docker-compose --file "ci/common/docker-compose.yml" --file "ci/${TEST_MODE}/docker-compose.override.yml" --verbose build

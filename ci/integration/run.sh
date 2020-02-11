@@ -4,5 +4,5 @@
 # It can also be run in an environment whose bundle includes a full Logstash installation.
 set -ex
 
-# runs unit-test specs
-jruby -rbundler/setup -S rspec --format=documentation
+# runs integration tests, assuming that a rabbitmq server is running on ${RABBITMQ_HOST} (if provided) or on localhost.
+jruby -rbundler/setup -S rspec --format=documentation --tag integration
