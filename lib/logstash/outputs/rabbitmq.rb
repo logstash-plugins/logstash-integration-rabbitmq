@@ -1,14 +1,12 @@
 # encoding: UTF-8
 require "logstash/pipeline"
 require_relative '../plugin_mixins/rabbitmq_connection'
-java_import java.util.concurrent.TimeoutException
-java_import com.rabbitmq.client.AlreadyClosedException
 
 require 'back_pressure'
 
 # Push events to a RabbitMQ exchange. Requires RabbitMQ 2.x
 # or later version (3.x is recommended).
-# 
+#
 # Relevant links:
 #
 # * http://www.rabbitmq.com/[RabbitMQ]
@@ -16,10 +14,14 @@ require 'back_pressure'
 module LogStash
   module Outputs
     class RabbitMQ < LogStash::Outputs::Base
+
+      java_import java.util.concurrent.TimeoutException
+      java_import com.rabbitmq.client.AlreadyClosedException
+
       include LogStash::PluginMixins::RabbitMQConnection
 
       config_name "rabbitmq"
-      
+
       concurrency :shared
 
       # The default codec for this plugin is JSON. You can override this to suit your particular needs however.
