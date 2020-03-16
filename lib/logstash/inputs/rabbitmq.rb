@@ -2,8 +2,6 @@
 require_relative '../plugin_mixins/rabbitmq_connection'
 require 'logstash/inputs/threadable'
 require 'logstash/event'
-java_import java.util.concurrent.ArrayBlockingQueue
-java_import java.util.concurrent.TimeUnit
 
 module LogStash
   module Inputs
@@ -59,6 +57,9 @@ module LogStash
     # Additionally, any message headers will be saved in the
     # `[@metadata][rabbitmq_headers]` field.
     class RabbitMQ < LogStash::Inputs::Threadable
+
+      java_import java.util.concurrent.TimeUnit
+
       include ::LogStash::PluginMixins::RabbitMQConnection
 
       # The properties to extract from each message and store in a

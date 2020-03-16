@@ -2,7 +2,6 @@
 require "logstash/devutils/rspec/spec_helper"
 require "logstash/pipeline"
 require "logstash/outputs/rabbitmq"
-java_import java.util.concurrent.TimeoutException
 
 describe LogStash::Outputs::RabbitMQ do
   let(:klass) { LogStash::Outputs::RabbitMQ }
@@ -124,7 +123,7 @@ describe LogStash::Outputs::RabbitMQ do
         end
 
         context 'when it is a TimeoutException' do
-          let(:exception) { TimeoutException.new }
+          let(:exception) { java.util.concurrent.TimeoutException.new }
           it_behaves_like 'recovers from exception gracefully'
         end
       end
