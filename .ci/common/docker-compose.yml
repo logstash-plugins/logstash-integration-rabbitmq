@@ -7,7 +7,7 @@ services:
   logstash:
     build:
       context: ../../
-      dockerfile: ci/common/logstash.Dockerfile
+      dockerfile: .ci/common/logstash.Dockerfile
       args:
         - ELASTIC_STACK_VERSION=$ELASTIC_STACK_VERSION
         - TEST_MODE=$TEST_MODE

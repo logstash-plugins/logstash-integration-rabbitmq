@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# This is intended to be run from the plugin's root directory. `ci/docker-test.sh`
+# This is intended to be run from the plugin's root directory. `.ci/docker-test.sh`
 # Ensure you have Docker installed locally and set the ELASTIC_STACK_VERSION environment variable.
 # - ELASTIC_STACK_VERSION: an exact version (e.g., "7.5.1"), or a MAJOR.x branch specifier (e.g., "7.x")
 # - SNAPSHOT: (optional) when $ELASTIC_STACK_VERSION is MAJOR.x, selects an unreleased snapshot from that branch
@@ -59,5 +59,5 @@ fi
     rm Gemfile.lock
 fi
 
-docker-compose --file "ci/common/docker-compose.yml" --file "ci/${TEST_MODE}/docker-compose.override.yml" down
-docker-compose --file "ci/common/docker-compose.yml" --file "ci/${TEST_MODE}/docker-compose.override.yml" --verbose build
+docker-compose --file ".ci/common/docker-compose.yml" --file ".ci/${TEST_MODE}/docker-compose.override.yml" down
+docker-compose --file ".ci/common/docker-compose.yml" --file ".ci/${TEST_MODE}/docker-compose.override.yml" --verbose build

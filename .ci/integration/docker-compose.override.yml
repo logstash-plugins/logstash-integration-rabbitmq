@@ -1,10 +1,10 @@
 version: '3'
 
 # provides additional services and overrides common configuration for integration tests.
-# SEE: ci/docker-setup.sh and ci/docker-run.sh with TEST_MODE=integration
+# SEE: .ci/docker-setup.sh and .ci/docker-run.sh with TEST_MODE=integration
 services:
   logstash:
-    command: /usr/share/plugins/plugin/ci/integration/run.sh
+    command: /usr/share/plugins/plugin/.ci/integration/run.sh
     tty: true
     depends_on:
       - rabbitmq
