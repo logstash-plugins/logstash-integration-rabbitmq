@@ -7,4 +7,4 @@ set -ex
 : "${TEST_MODE:=$([[ "${INTEGRATION}" = "true" ]] && echo "integration" || echo "unit")}"
 export TEST_MODE
 
-docker-compose -f "ci/common/docker-compose.yml" -f "ci/${TEST_MODE}/docker-compose.override.yml" up --exit-code-from logstash
+docker-compose -f ".ci/common/docker-compose.yml" -f ".ci/${TEST_MODE}/docker-compose.override.yml" up --exit-code-from logstash

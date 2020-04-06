@@ -1,22 +1,10 @@
----
-sudo: required
-services: docker
-addons:
-  apt:
-    packages:
-      - docker-ce
-matrix:
+import:
+- logstash-plugins/.ci:travis/travis.yml@1.x
+
+jobs:
   include:
-    - stage: unit-tests
-      env: ELASTIC_STACK_VERSION=8.x SNAPSHOT=true
-    - env: ELASTIC_STACK_VERSION=7.x SNAPSHOT=true
-    - env: ELASTIC_STACK_VERSION=7.x
-    - env: ELASTIC_STACK_VERSION=6.x
-    - stage: integration-tests
+    - stage: Integration
       env: ELASTIC_STACK_VERSION=8.x SNAPSHOT=true INTEGRATION=true
     - env: ELASTIC_STACK_VERSION=7.x SNAPSHOT=true INTEGRATION=true
     - env: ELASTIC_STACK_VERSION=7.x INTEGRATION=true
     - env: ELASTIC_STACK_VERSION=6.x INTEGRATION=true
-  fast_finish: true
-install: ci/docker-setup.sh
-script: ci/docker-run.sh

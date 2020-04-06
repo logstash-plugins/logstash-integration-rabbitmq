@@ -1,0 +1,8 @@
+version: '3'
+
+# Overrides common docker configuration to run unit tests
+# SEE: .ci/docker-setup.sh and .ci/docker-run.sh with TEST_MODE=unit
+services:
+  logstash:
+    command: /usr/share/plugins/plugin/.ci/unit/run.sh
+    tty: true
