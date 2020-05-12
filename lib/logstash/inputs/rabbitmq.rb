@@ -166,11 +166,14 @@ module LogStash
       config :subscription_retry_interval_seconds, :validate => :number, :required => true, :default => 5
 
       # Enable the storage of message headers and properties in `@metadata`. This may impact performance
-      config :metadata_enabled, :validate => :boolean, :default => false
+      config :metadata_enabled, :validate => %w(none basic extended false true), :default => "none"
 
       def register
         @internal_queue = java.util.concurrent.ArrayBlockingQueue.new(@prefetch_count*2)
+        @metadata_level = extract_metadata_level(@metadata_enabled)
       end
+
+      attr_reader :metadata_level
 
       def run(output_queue)
         setup!
@@ -250,12 +253,11 @@ module LogStash
 
           metadata, data = payload
           @codec.decode(data) do |event|
-            decorate(event)
-            if @metadata_enabled
-              event.set("[@metadata][rabbitmq_headers]", get_headers(metadata))
-              event.set("[@metadata][rabbitmq_properties]", get_properties(metadata))
+            if event
+              decorate(event, metadata, data)
+
+              @output_queue << event
             end
-            @output_queue << event if event
           end
 
           i += 1
@@ -268,6 +270,16 @@ module LogStash
             last_delivery_tag = metadata.delivery_tag
           end
         end
+      end
+
+      def decorate(event, metadata, data)
+        super(event)
+
+        event.set("[@metadata][rabbitmq_headers]", get_headers(metadata))       if metadata_level.include?(:headers)
+        event.set("[@metadata][rabbitmq_properties]", get_properties(metadata)) if metadata_level.include?(:properties)
+        event.set("[@metadata][rabbitmq_payload]", data)                        if metadata_level.include?(:payload) && !data.nil?
+
+        nil
       end
 
       def stop
@@ -309,6 +321,28 @@ module LogStash
             acc[name] = name != "timestamp" ? value : value.getTime / 1000
           end
           acc
+        end
+      end
+
+      METADATA_NONE     = Set[].freeze
+      METADATA_BASIC    = Set[:headers,:properties].freeze
+      METADATA_EXTENDED = Set[:headers,:properties,:payload].freeze
+      METADATA_DEPRECATION_MAP = { 'true' => 'basic', 'false' => 'none' }
+
+      private
+      def extract_metadata_level(metadata_enabled_setting)
+        metadata_enabled = metadata_enabled_setting
+
+        if METADATA_DEPRECATION_MAP.include?(metadata_enabled)
+          canonical_value = METADATA_DEPRECATION_MAP[metadata_enabled]
+          logger.warn("Deprecated value `#{metadata_enabled_setting}` for `metadata_enabled` option; use `#{canonical_value}` instead.")
+          metadata_enabled = canonical_value
+        end
+
+        case metadata_enabled
+        when 'none'     then METADATA_NONE
+        when 'basic'    then METADATA_BASIC
+        when 'extended' then METADATA_EXTENDED
         end
       end
     end
