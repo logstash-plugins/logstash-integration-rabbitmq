@@ -1,3 +1,7 @@
+## Unreleased
+  - Fixes bug where attempting to read from undeclared exchange resulted in infinite retry loop ([#10](https://github.com/logstash-plugins/logstash-integration-rabbitmq/issues/10))
+  - Fixes bug where failing to establish initial connection resulted in a pipeline that refused to shut down ([#11](https://github.com/logstash-plugins/logstash-integration-rabbitmq/issues/11))
+
 ## 7.0.3
   - Refactor: scope (and remove unused) java imports [#29](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/29)
 
