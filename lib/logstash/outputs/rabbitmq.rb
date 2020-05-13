@@ -48,6 +48,8 @@ module LogStash
       config :message_properties, :validate => :hash, :default => {}
 
       def register
+        @message_properties_template = MessagePropertiesTemplate.new(symbolize(@message_properties).merge(:persistent => @persistent))
+
         connect!
         @hare_info.exchange = declare_exchange!(@hare_info.channel, @exchange, @exchange_type, @durable)
         # The connection close should close all channels, so it is safe to store thread locals here without closing them
@@ -69,8 +71,10 @@ module LogStash
 
       def publish(event, message)
         raise ArgumentError, "No exchange set in HareInfo!!!" unless @hare_info.exchange
+        routing_key = event.sprintf(@key)
+        message_properties = @message_properties_template.build(event)
         @gated_executor.execute do
-          local_exchange.publish(message, :routing_key => event.sprintf(@key), :properties => symbolize(@message_properties.merge(:persistent => @persistent)))
+          local_exchange.publish(message, :routing_key => routing_key, :properties => message_properties)
         end
       rescue MarchHare::Exception, IOError, AlreadyClosedException, TimeoutException => e
         @logger.error("Error while publishing. Will retry.",
@@ -126,6 +130,64 @@ module LogStash
           march_hare_connection.on_recovery do
             executor.remove_back_pressure('connection recovered')
           end
+        end
+      end
+
+      ##
+      # A `MessagePropertiesTemplate` efficiently produces per-event message properties from the
+      # provided template Hash.
+      #
+      # In order to efficiently reuse constant-value objects, returned values may be frozen.
+      class MessagePropertiesTemplate
+        ##
+        # Creates a new `MessagePropertiesTemplate` from the provided `template`
+        # @param template [Hash{Symbol=>Object}]
+        def initialize(template)
+          constant_properties = template.reject { |_,v| templated?(v) }
+          variable_properties = template.select { |_,v| templated?(v) }
+
+          @constant_properties = normalize(constant_properties).freeze
+          @variable_properties = variable_properties
+        end
+
+        ##
+        # Builds a property mapping for the given `event`, including templated values.
+        #
+        # @param event [LogStash::Event]: the event with which to populated templated values, if any.
+        # @return [Hash{Symbol=>Object}] a possibly-frozen properties hash for the provided `event`.
+        def build(event)
+          return @constant_properties if @variable_properties.empty?
+
+          properties = @variable_properties.each_with_object(@constant_properties.dup) do |(k,v), memo|
+            memo.store(k, event.sprintf(v))
+          end
+
+          return normalize(properties)
+        end
+
+        private
+
+        ##
+        # Normalize the provided property mapping with respect to the value types the underlying
+        # client expects.
+        #
+        # @api private
+        # @param properties [Hash{Symbol=>Object}]: a possibly-frozen Hash whose values may need type-coercion.
+        # @return [Hash{Symbol=>Object}]
+        def normalize(properties)
+          if properties[:priority] && properties[:priority].kind_of?(String)
+            properties = properties.merge(:priority => properties[:priority].to_i)
+          end
+
+          properties
+        end
+
+        ##
+        # @api private
+        # @param [Object]: an object, which may or may not be a template `String`
+        # @return [Boolean]: returns `true` IFF `value` is a template `String`
+        def templated?(value)
+          value.kind_of?(String) && value.include?('%{')
         end
       end
     end

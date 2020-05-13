@@ -168,7 +168,8 @@ Key to route to by default. Defaults to 'logstash'
   * Value type is <<hash,hash>>
   * Default value is `{}`
 
-Add properties to be set per-message here, such as 'content_type', 'priority'
+Add properties to be set per-message here, such as 'content_type', 'priority'.
+Values can be {logstash-ref}/event-dependent-configuration.html#sprintf[`sprintf` templates], whose value for each message will be populated from the event.
 
 Example:
 [source,ruby]
