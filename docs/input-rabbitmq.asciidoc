@@ -34,7 +34,7 @@ and other parts of the RabbitMQ documentation are useful for deeper
 understanding.
 
 The properties of messages received will be stored in the
-`[@metadata][rabbitmq_properties]` field if the `@metadata_enabled` setting is checked.
+`[@metadata][rabbitmq_properties]` field if the `@metadata_enabled` setting is enabled.
 Note that storing metadata may degrade performance.
 The following properties may be available (in most cases dependent on whether
 they were set by the sender):
@@ -259,8 +259,14 @@ This is only relevant for direct or topic exchanges.
 [id="plugins-{type}s-{plugin}-metadata_enabled"]
 ===== `metadata_enabled`
 
-  * Value type is <<boolean,boolean>>
-  * Default value is `false`
+  * Value type is <<string,string>>
+  * Accepted values are:
+    - `none`: no metadata is added
+    - `basic`: headers and properties are added
+    - `extended`: headers, properties, and raw payload are added
+    - `false`: deprecated alias for `none`
+    - `true`: deprecated alias for `basic`
+  * Default value is `none`
 
 Enable the storage of message headers and properties in `@metadata`. This may impact performance
 
