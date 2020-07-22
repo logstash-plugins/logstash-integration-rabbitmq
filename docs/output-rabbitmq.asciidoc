@@ -1,3 +1,4 @@
+:integration: rabbitmq
 :plugin: rabbitmq
 :type: output
 :default_codec: json
