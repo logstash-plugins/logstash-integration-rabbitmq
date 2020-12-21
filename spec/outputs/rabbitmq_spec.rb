@@ -1,6 +1,5 @@
 # encoding: UTF-8
 require "logstash/devutils/rspec/spec_helper"
-require "logstash/pipeline"
 require "logstash/outputs/rabbitmq"
 
 describe LogStash::Outputs::RabbitMQ do
