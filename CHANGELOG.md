@@ -1,4 +1,4 @@
-## 7.2.1
+## 7.2.0
   - Remove ruby pipeline dependency. Starting from Logstash 8, Ruby execution engine is not available. All pipelines should use Java pipeline [#39](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/39)
 
 ## 7.1.1
