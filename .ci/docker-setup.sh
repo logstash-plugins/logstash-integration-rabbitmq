@@ -63,7 +63,5 @@ fi
 
 CURRENT_DIR=$(dirname "${BASH_SOURCE[0]}")
 
-cd .ci
-
 docker-compose --file ".ci/common/docker-compose.yml" --file ".ci/${TEST_MODE}/docker-compose.override.yml" down
 docker-compose --file ".ci/common/docker-compose.yml" --file ".ci/${TEST_MODE}/docker-compose.override.yml" --verbose build
