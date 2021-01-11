@@ -1,9 +1,11 @@
 ARG ELASTIC_STACK_VERSION
 FROM docker.elastic.co/logstash/logstash:$ELASTIC_STACK_VERSION
-COPY --chown=logstash:logstash Gemfile /usr/share/plugins/plugin/
-COPY --chown=logstash:logstash *.gemspec /usr/share/plugins/plugin/
+USER logstash
+COPY --chown=logstash:logstash Gemfile /usr/share/plugins/plugin/Gemfile
+COPY --chown=logstash:logstash *.gemspec VERSION* version* /usr/share/plugins/plugin/
 RUN cp /usr/share/logstash/logstash-core/versions-gem-copy.yml /usr/share/logstash/versions.yml
-ENV PATH="${PATH}:/usr/share/logstash/vendor/jruby/bin"
+# NOTE: since 7.10 JDK is bundled as part of the LS distribution under $LS_HOME/jdk
+ENV PATH="${PATH}:/usr/share/logstash/vendor/jruby/bin:/usr/share/logstash/jdk/bin"
 ENV LOGSTASH_SOURCE="1"
 RUN gem install bundler -v '< 2'
 WORKDIR /usr/share/plugins/plugin
