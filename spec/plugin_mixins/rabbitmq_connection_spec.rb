@@ -48,7 +48,7 @@ describe LogStash::PluginMixins::RabbitMQConnection do
     let(:path) { file.path }
     after { File.unlink(path)}
 
-    let(:rabbitmq_settings) { super.merge({"connection_timeout" => 123,
+    let(:rabbitmq_settings) { super().merge({"connection_timeout" => 123,
                                            "heartbeat" => 456,
                                            "ssl" => true,
                                            "ssl_version" => "TLSv1.1",
@@ -79,14 +79,14 @@ describe LogStash::PluginMixins::RabbitMQConnection do
 
     context 'with a custom port' do
       let(:port) { 123 }
-      let(:rabbitmq_settings) { super.merge({"port" => port})}
+      let(:rabbitmq_settings) { super().merge({"port" => port})}
 
       it_behaves_like 'it sets the addresses correctly'
     end
   end
 
   describe "ssl enabled, but no verification" do
-    let(:rabbitmq_settings) { super.merge({"connection_timeout" => 123,
+    let(:rabbitmq_settings) { super().merge({"connection_timeout" => 123,
                                            "heartbeat" => 456,
                                            "ssl" => true}) }
 
@@ -102,7 +102,7 @@ describe LogStash::PluginMixins::RabbitMQConnection do
 
     context 'with a custom port'  do
       let(:port) { 999 }
-      let(:rabbitmq_settings) { super.merge({"port" => port})}
+      let(:rabbitmq_settings) { super().merge({"port" => port})}
 
       it_behaves_like 'it sets the addresses correctly'
     end
