@@ -179,11 +179,6 @@ module LogStash
         @hare_info && @hare_info.connection && @hare_info.connection.open?
       end
 
-      def connected?
-        return nil unless @hare_info && @hare_info.connection
-        @hare_info.connection.connected?
-      end
-
       private
 
       def declare_exchange!(channel, exchange, exchange_type, durable)

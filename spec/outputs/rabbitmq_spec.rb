@@ -240,12 +240,12 @@ describe "LogStash::Outputs::RabbitMQ with a live server", :integration => true 
 
   context "using defaults" do
     it "should start, connect, and stop cleanly" do
-      expect(instance.connected?).to be_truthy
+      expect(instance.send(:connection_open?)).to be_truthy
     end
 
     it "should close cleanly" do
       instance.close
-      expect(instance.connected?).to be_falsey
+      expect(instance.send(:connection_open?)).to be_falsey
     end
 
     it 'applies per message settings' do
