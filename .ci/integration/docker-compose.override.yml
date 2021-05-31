@@ -4,6 +4,10 @@ version: '3'
 # SEE: .ci/docker-setup.sh and .ci/docker-run.sh with TEST_MODE=integration
 services:
   logstash:
+    build:
+      args:
+        - TEST_MODE=$TEST_MODE # extra argument
+
     command: /usr/share/plugins/plugin/.ci/integration/run.sh
     tty: true
     depends_on:
