@@ -337,7 +337,7 @@ describe "LogStash::Inputs::RabbitMQ with a live server", :integration => true d
     }
 
     20.times do
-      instance.connected? ? break : sleep(0.1)
+      instance.send(:connection_open?) ? break : sleep(0.1)
     end
 
     # Extra time to make sure the consumer can attach
