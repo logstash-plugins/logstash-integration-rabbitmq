@@ -198,6 +198,13 @@ module LogStash
         @logger.debug? && @logger.debug("Connecting to RabbitMQ", rabbitmq_settings)
 
         connection = MarchHare.connect(rabbitmq_settings) # MarchHare::Session.connect
+        # we could pass down the :logger => logger but that adds an extra:
+        #   `logger.info("Using TLS/SSL version #{tls}")` which isn't useful
+        # the rest of MH::Session logging is mostly debug level details
+        #
+        # NOTE: effectively redirects MarchHare's default std-out logging to LS
+        #       (MARCH_HARE_LOG_LEVEL=debug no longer has an effect)
+        connection.instance_variable_set(:@logger, logger)
 
         connection.on_shutdown do |conn, cause|
            @logger.warn("RabbitMQ connection was closed!",
