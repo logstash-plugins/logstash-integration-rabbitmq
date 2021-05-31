@@ -187,8 +187,7 @@ module LogStash
       private
 
       def declare_exchange!(channel, exchange, exchange_type, durable)
-        @logger.debug? && @logger.debug("Declaring an exchange", :name => exchange,
-                      :type => exchange_type, :durable => durable)
+        @logger.debug? && @logger.debug("Declaring an exchange", :name => exchange, :type => exchange_type, :durable => durable)
         exchange = channel.exchange(exchange, :type => exchange_type.to_sym, :durable => durable)
         @logger.debug? && @logger.debug("Exchange declared")
         exchange
@@ -201,9 +200,9 @@ module LogStash
       end
 
       def connect
-        @logger.debug? && @logger.debug("Connecting to RabbitMQ. Settings: #{rabbitmq_settings.inspect}")
+        @logger.debug? && @logger.debug("Connecting to RabbitMQ", rabbitmq_settings)
 
-        connection = MarchHare.connect(rabbitmq_settings)
+        connection = MarchHare.connect(rabbitmq_settings) # MarchHare::Session.connect
 
         connection.on_shutdown do |conn, cause|
            @logger.warn("RabbitMQ connection was closed!",
@@ -220,7 +219,7 @@ module LogStash
         end
 
         channel = connection.create_channel
-        @logger.info("Connected to RabbitMQ at #{rabbitmq_settings[:host]}")
+        @logger.info("Connected to RabbitMQ at #{connection.host}:#{connection.port}")
 
         HareInfo.new(connection, channel)
       end

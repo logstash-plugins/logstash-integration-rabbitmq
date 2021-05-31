@@ -60,6 +60,8 @@ describe LogStash::Outputs::RabbitMQ do
       allow(connection).to receive(:on_shutdown)
       allow(connection).to receive(:on_recovery_start)
       allow(connection).to receive(:on_recovery)
+      allow(connection).to receive(:host).and_return host
+      allow(connection).to receive(:port).and_return port
       allow(channel).to receive(:exchange).and_return(exchange)
 
       instance.register
