@@ -109,13 +109,13 @@ module LogStash
         s = {
           :vhost => @vhost,
           :addresses => addresses_from_hosts_and_port(@host, @port),
-          :user  => @user,
+          :username  => @user,
           :automatic_recovery => @automatic_recovery,
-          :pass => @password ? @password.value : "guest",
+          :password => @password ? @password.value : "guest",
         }
 
-        s[:timeout] = @connection_timeout || 0
-        s[:heartbeat] = @heartbeat || 0
+        s[:connection_timeout] = @connection_timeout || 0
+        s[:requested_heartbeat] = @heartbeat || 0
 
         if @ssl
           s[:tls] = @ssl_version
