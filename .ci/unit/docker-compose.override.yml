@@ -4,5 +4,9 @@ version: '3'
 # SEE: .ci/docker-setup.sh and .ci/docker-run.sh with TEST_MODE=unit
 services:
   logstash:
+    build:
+      args:
+        - TEST_MODE=$TEST_MODE # extra argument
+
     command: /usr/share/plugins/plugin/.ci/unit/run.sh
     tty: true
