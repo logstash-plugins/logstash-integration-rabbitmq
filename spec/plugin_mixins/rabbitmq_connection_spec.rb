@@ -131,6 +131,8 @@ describe LogStash::PluginMixins::RabbitMQConnection do
       allow(connection).to receive(:on_shutdown)
       allow(connection).to receive(:host).and_return host
       allow(connection).to receive(:port).and_return port
+      allow(connection).to receive(:vhost).and_return nil
+      allow(connection).to receive(:user).and_return 'guest'
 
       instance.register
     end
