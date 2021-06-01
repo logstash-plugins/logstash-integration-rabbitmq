@@ -142,7 +142,7 @@ module LogStash
       def connect!
         @hare_info = connect() unless @hare_info # Don't duplicate the conn!
       rescue MarchHare::Exception, java.io.IOException => e
-        error_message = if e.message.empty? && e.is_a?(java.io.IOException)
+        message = if e.message.empty? && e.is_a?(java.io.IOException)
           # IOException with an empty message is probably an instance of
           # these problems:
           # https://github.com/logstash-plugins/logstash-output-rabbitmq/issues/52
@@ -151,21 +151,12 @@ module LogStash
           # Best guess is to help the user understand that there is probably
           # some kind of configuration problem causing the error, but we
           # can't really offer any more detailed hints :\
-          "An unknown error occurred. RabbitMQ gave no hints as to the cause. Maybe this is a configuration error (invalid vhost, for example). I recommend checking the RabbitMQ server logs for clues about this failure."
+          "An unknown RabbitMQ error occurred, maybe this is a configuration error (invalid vhost, for example) - please check the RabbitMQ server logs for clues about this failure"
         else
-          e.message
+          "RabbitMQ connection error, will retry"
         end
 
-        if @logger.debug?
-          @logger.error("RabbitMQ connection error, will retry.",
-                        :error_message => error_message,
-                        :exception => e.class.name,
-                        :backtrace => e.backtrace)
-        else
-          @logger.error("RabbitMQ connection error, will retry.",
-                        :error_message => error_message,
-                        :exception => e.class.name)
-        end
+        @logger.error(message, error_details(e))
 
         sleep_for_retry
         retry
@@ -183,14 +174,10 @@ module LogStash
 
       def declare_exchange!(channel, exchange, exchange_type, durable)
         @logger.debug? && @logger.debug("Declaring an exchange", :name => exchange, :type => exchange_type, :durable => durable)
-        exchange = channel.exchange(exchange, :type => exchange_type.to_sym, :durable => durable)
-        @logger.debug? && @logger.debug("Exchange declared")
-        exchange
-      rescue StandardError => e
-        @logger.error("Could not declare exchange!",
-                      :exchange => exchange, :type => exchange_type,
-                      :durable => durable, :error_class => e.class.name,
-                      :error_message => e.message, :backtrace => e.backtrace)
+        channel.exchange(exchange, :type => exchange_type.to_sym, :durable => durable)
+      rescue => e
+        @logger.error("Could not declare exchange", error_details(e, :exchange => exchange, :type => exchange_type, :durable => durable))
+
         raise e
       end
 
@@ -207,21 +194,17 @@ module LogStash
         connection.instance_variable_set(:@logger, logger)
 
         connection.on_shutdown do |conn, cause|
-           @logger.warn("RabbitMQ connection was closed!",
-                          :url => connection_url(conn),
-                          :automatic_recovery => @automatic_recovery,
-                          :cause => cause)
+           @logger.warn("RabbitMQ connection was closed", url: connection_url(conn), automatic_recovery: @automatic_recovery, cause: cause)
         end
         connection.on_blocked do
-          @logger.warn("RabbitMQ connection blocked! Check your RabbitMQ instance!",
-                       :url => connection_url(connection))
+          @logger.warn("RabbitMQ connection blocked - please check the RabbitMQ server logs", url: connection_url(connection))
         end
         connection.on_unblocked do
-          @logger.warn("RabbitMQ connection unblocked!", :url => connection_url(connection))
+          @logger.warn("RabbitMQ connection unblocked", url: connection_url(connection))
         end
 
         channel = connection.create_channel
-        @logger.info("Connected to RabbitMQ at #{connection.host}:#{connection.port}")
+        @logger.info("Connected to RabbitMQ", url: connection_url(connection))
 
         HareInfo.new(connection, channel)
       end
@@ -236,6 +219,16 @@ module LogStash
       def sleep_for_retry
         Stud.stoppable_sleep(@connect_retry_interval) { @rabbitmq_connection_stopping }
       end
+
+      def error_details(e, info = {})
+        details = info.merge(:exception => e.class, :message => e.message)
+        if e.is_a?(MarchHare::Exception) && e.cause
+          details[:cause] = e.cause # likely a Java exception
+        end
+        details[:backtrace] = e.backtrace if @logger.debug? || info[:backtrace] == true
+        details
+      end
+
     end
   end
 end

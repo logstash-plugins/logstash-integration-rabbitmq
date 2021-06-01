@@ -180,12 +180,9 @@ module LogStash
         @output_queue = output_queue
         consume!
       rescue => e
-        raise unless stop?
+        raise(e) unless stop?
 
-        logger.warn("Ignoring exception thrown during plugin shutdown",
-                    :message  => e.message,
-                    :class    => e.class.name,
-                    :location => e.backtrace.first)
+        @logger.warn("Ignoring exception thrown during plugin shutdown", error_details(e))
       end
 
       def setup!
@@ -200,10 +197,7 @@ module LogStash
 
         reset!
 
-        @logger.warn("Error while setting up connection for rabbitmq input! Will retry.",
-                     :message  => e.message,
-                     :class    => e.class.name,
-                     :location => e.backtrace.first)
+        @logger.warn("Error while setting up connection, will retry", error_details(e))
         sleep_for_retry
         retry
       end
@@ -215,7 +209,7 @@ module LogStash
       def reset!
         @hare_info.connection && @hare_info.connection.close
       rescue => e
-        @logger.debug("Exception while resetting connection", :exception => e.message, :backtrace => e.backtrace)
+        @logger.debug("Exception while resetting connection", error_details(e))
       ensure
         @hare_info = nil
       end
@@ -250,8 +244,8 @@ module LogStash
 
         begin
           @hare_info.queue.subscribe_with(@consumer, :manual_ack => @ack)
-        rescue MarchHare::Exception => e
-          @logger.warn("Could not subscribe to queue! Will retry in #{@subscription_retry_interval_seconds} seconds", :queue => @queue)
+        rescue => e
+          @logger.warn("Could not subscribe to queue, will retry in #{@subscription_retry_interval_seconds} seconds", error_details(e, :queue => @queue))
 
           sleep @subscription_retry_interval_seconds
           retry
@@ -316,15 +310,17 @@ module LogStash
       def shutdown_consumer
         return unless @consumer
         @hare_info.channel.basic_cancel(@consumer.consumer_tag)
+        connection = @hare_info.connection
         until @consumer.terminated?
-          @logger.info("Waiting for rabbitmq consumer to terminate before stopping!", :params => self.params)
+          @logger.info("Waiting for RabbitMQ consumer to terminate before stopping", url: connection_url(connection))
           sleep 1
         end
       end
 
       def on_cancellation
         if !stop? # If this isn't already part of a regular stop
-          @logger.info("Received basic.cancel from #{rabbitmq_settings[:host]}, shutting down.")
+          connection = @hare_info.connection
+          @logger.info("Received cancellation, shutting down", url: connection_url(connection))
           stop
         end
       end

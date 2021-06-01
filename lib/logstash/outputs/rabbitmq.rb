@@ -77,10 +77,7 @@ module LogStash
           local_exchange.publish(message, :routing_key => routing_key, :properties => message_properties)
         end
       rescue MarchHare::Exception, IOError, AlreadyClosedException, TimeoutException => e
-        @logger.error("Error while publishing. Will retry.",
-                      :message => e.message,
-                      :exception => e.class,
-                      :backtrace => e.backtrace)
+        @logger.error("Error while publishing, will retry", error_details(e, backtrace: true))
 
         sleep_for_retry
         retry
