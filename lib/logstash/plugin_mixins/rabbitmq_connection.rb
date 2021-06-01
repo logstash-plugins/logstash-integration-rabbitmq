@@ -184,7 +184,9 @@ module LogStash
       def connect
         @logger.debug? && @logger.debug("Connecting to RabbitMQ", rabbitmq_settings)
 
-        connection = MarchHare.connect(rabbitmq_settings) # MarchHare::Session.connect
+        # disable MarchHare's attempt to provide a "better" exception logging experience:
+        settings = rabbitmq_settings.merge :exception_handler => com.rabbitmq.client.impl.ForgivingExceptionHandler.new
+        connection = MarchHare.connect(settings) # MarchHare::Session.connect
         # we could pass down the :logger => logger but that adds an extra:
         #   `logger.info("Using TLS/SSL version #{tls}")` which isn't useful
         # the rest of MH::Session logging is mostly debug level details
