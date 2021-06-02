@@ -193,7 +193,7 @@ module LogStash
         #
         # NOTE: effectively redirects MarchHare's default std-out logging to LS
         #       (MARCH_HARE_LOG_LEVEL=debug no longer has an effect)
-        connection.instance_variable_set(:@logger, logger)
+        connection.instance_variable_set(:@logger, LoggerAdapter.new(logger))
 
         connection.on_shutdown do |conn, cause|
            @logger.warn("RabbitMQ connection was closed", url: connection_url(conn), automatic_recovery: @automatic_recovery, cause: cause)
@@ -231,18 +231,30 @@ module LogStash
         details
       end
 
+      # @private adapting MarchHare's Ruby Logger assumptions
       class LoggerAdapter < SimpleDelegator
 
         java_import java.lang.Throwable
 
-        def error(arg)
-          if arg.is_a?(Exception) || arg.is_a?(Throwable)
-            details = { :exception => arg.class, :backtrace => arg.backtrace }
-            details[:cause] = arg.cause if arg.cause
-            __getobj__.error(arg.message.to_s, details)
-          else
-            __getobj__.error(arg)
-          end
+        [:trace, :debug, :info, :warn, :error, :fatal].each do |level|
+          # sample logging used by MarchHare that we're after:
+          #
+          #   rescue Exception => e
+          #     logger.error("Caught exception when recovering queue #{q.name}")
+          #     logger.error(e)
+          #   end
+          class_eval <<-RUBY, __FILE__, __LINE__
+            def #{level}(arg)
+              if arg.is_a?(Exception) || arg.is_a?(Throwable)
+                details = { :exception => arg.class }
+                details[:cause] = arg.cause if arg.cause
+                details[:backtrace] = arg.backtrace
+                __getobj__.#{level}(arg.message.to_s, details)
+              else
+                __getobj__.#{level}(arg) # String
+              end
+            end
+          RUBY
         end
 
       end

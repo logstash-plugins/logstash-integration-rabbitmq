@@ -373,7 +373,7 @@ describe "LogStash::Inputs::RabbitMQ with a live server", :integration => true d
   end
 
   it "should have the correct prefetch value" do
-    expect(instance.instance_variable_get(:@hare_info).channel.prefetch).to eql(256)
+    expect(hare_info.channel.prefetch).to eql(256)
   end
 
   describe "receiving a message with a queue + exchange specified" do
@@ -463,6 +463,32 @@ describe "LogStash::Inputs::RabbitMQ with a live server", :integration => true d
         expect(event.get("[@metadata][foo]")).to eq("bar")
       end
     end
+  end
+
+  context "(MarchHare) error logging" do
+
+    let(:error) do
+      MarchHare::Exception.new('TEST ERROR').tap do |error|
+        allow( error ).to receive(:cause).and_return(error_cause)
+      end
+    end
+    let(:error_cause) { java.io.IOException.new('TEST CAUSE') }
+    let(:logger) { instance.logger }
+
+    before do
+      queues = hare_info.channel.instance_variable_get(:@queues)
+      expect( queue = queues.values.first ).to_not be nil
+      # emulate an issue during recovery (to trigger logger.error calls)
+      allow( queue ).to receive(:recover_from_network_failure).and_raise(error)
+      allow( logger ).to receive(:error)
+    end
+
+    it "gets redirected to plugin logger" do
+      hare_info.channel.recover_queues
+      expect( logger ).to have_received(:error).with(/Caught exception when recovering queue/i)
+      expect( logger ).to have_received(:error).with('TEST ERROR', hash_including(exception: MarchHare::Exception, cause: error_cause))
+    end
+
   end
 
   describe LogStash::Inputs::RabbitMQ do
