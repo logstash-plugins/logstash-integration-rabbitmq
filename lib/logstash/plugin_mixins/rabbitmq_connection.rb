@@ -231,6 +231,22 @@ module LogStash
         details
       end
 
+      class LoggerAdapter < SimpleDelegator
+
+        java_import java.lang.Throwable
+
+        def error(arg)
+          if arg.is_a?(Exception) || arg.is_a?(Throwable)
+            details = { :exception => arg.class, :backtrace => arg.backtrace }
+            details[:cause] = arg.cause if arg.cause
+            __getobj__.error(arg.message.to_s, details)
+          else
+            __getobj__.error(arg)
+          end
+        end
+
+      end
+
     end
   end
 end
