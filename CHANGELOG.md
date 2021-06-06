@@ -1,3 +1,8 @@
+## 7.3.0
+  - Refactor: logging improvements [#47](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/47)
+    * integrated MarchHare logging to be part of Logstash's log instead of using std-err
+    * normalized logging format on (Ruby) errors
+
 ## 7.2.0
   - Remove ruby pipeline dependency. Starting from Logstash 8, Ruby execution engine is not available. All pipelines should use Java pipeline [#39](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/39)
 
