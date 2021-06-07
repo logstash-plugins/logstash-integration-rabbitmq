@@ -45,6 +45,10 @@ describe LogStash::Inputs::RabbitMQ do
       allow(connection).to receive(:on_blocked)
       allow(connection).to receive(:on_unblocked)
       allow(connection).to receive(:close)
+      allow(connection).to receive(:host).and_return host
+      allow(connection).to receive(:port).and_return port
+      allow(connection).to receive(:vhost).and_return nil
+      allow(connection).to receive(:user).and_return 'guest'
       allow(channel).to receive(:exchange).and_return(exchange)
       allow(channel).to receive(:queue).and_return(queue)
       allow(channel).to receive(:prefetch=)
@@ -335,7 +339,7 @@ describe "LogStash::Inputs::RabbitMQ with a live server", :integration => true d
     }
 
     20.times do
-      instance.connected? ? break : sleep(0.1)
+      instance.send(:connection_open?) ? break : sleep(0.1)
     end
 
     # Extra time to make sure the consumer can attach
@@ -364,12 +368,12 @@ describe "LogStash::Inputs::RabbitMQ with a live server", :integration => true d
 
   context "using defaults" do
     it "should start, connect, and stop cleanly" do
-      expect(instance.connected?).to be_truthy
+      expect(instance.send(:connection_open?)).to be_truthy
     end
   end
 
   it "should have the correct prefetch value" do
-    expect(instance.instance_variable_get(:@hare_info).channel.prefetch).to eql(256)
+    expect(hare_info.channel.prefetch).to eql(256)
   end
 
   describe "receiving a message with a queue + exchange specified" do
@@ -459,6 +463,32 @@ describe "LogStash::Inputs::RabbitMQ with a live server", :integration => true d
         expect(event.get("[@metadata][foo]")).to eq("bar")
       end
     end
+  end
+
+  context "(MarchHare) error logging" do
+
+    let(:error) do
+      MarchHare::Exception.new('TEST ERROR').tap do |error|
+        allow( error ).to receive(:cause).and_return(error_cause)
+      end
+    end
+    let(:error_cause) { java.io.IOException.new('TEST CAUSE') }
+    let(:logger) { instance.logger }
+
+    before do
+      queues = hare_info.channel.instance_variable_get(:@queues)
+      expect( queue = queues.values.first ).to_not be nil
+      # emulate an issue during recovery (to trigger logger.error calls)
+      allow( queue ).to receive(:recover_from_network_failure).and_raise(error)
+      allow( logger ).to receive(:error)
+    end
+
+    it "gets redirected to plugin logger" do
+      hare_info.channel.recover_queues
+      expect( logger ).to have_received(:error).with(/Caught exception when recovering queue/i)
+      expect( logger ).to have_received(:error).with('TEST ERROR', hash_including(exception: MarchHare::Exception, cause: error_cause))
+    end
+
   end
 
   describe LogStash::Inputs::RabbitMQ do

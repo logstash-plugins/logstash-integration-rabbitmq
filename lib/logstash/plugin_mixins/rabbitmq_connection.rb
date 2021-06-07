@@ -109,13 +109,13 @@ module LogStash
         s = {
           :vhost => @vhost,
           :addresses => addresses_from_hosts_and_port(@host, @port),
-          :user  => @user,
+          :username  => @user,
           :automatic_recovery => @automatic_recovery,
-          :pass => @password ? @password.value : "guest",
+          :password => @password ? @password.value : "guest",
         }
 
-        s[:timeout] = @connection_timeout || 0
-        s[:heartbeat] = @heartbeat || 0
+        s[:connection_timeout] = @connection_timeout || 0
+        s[:requested_heartbeat] = @heartbeat || 0
 
         if @ssl
           s[:tls] = @ssl_version
@@ -142,7 +142,7 @@ module LogStash
       def connect!
         @hare_info = connect() unless @hare_info # Don't duplicate the conn!
       rescue MarchHare::Exception, java.io.IOException => e
-        error_message = if e.message.empty? && e.is_a?(java.io.IOException)
+        message = if e.message.empty? && e.is_a?(java.io.IOException)
           # IOException with an empty message is probably an instance of
           # these problems:
           # https://github.com/logstash-plugins/logstash-output-rabbitmq/issues/52
@@ -151,21 +151,12 @@ module LogStash
           # Best guess is to help the user understand that there is probably
           # some kind of configuration problem causing the error, but we
           # can't really offer any more detailed hints :\
-          "An unknown error occurred. RabbitMQ gave no hints as to the cause. Maybe this is a configuration error (invalid vhost, for example). I recommend checking the RabbitMQ server logs for clues about this failure."
+          "An unknown RabbitMQ error occurred, maybe this is a configuration error (invalid vhost, for example) - please check the RabbitMQ server logs for clues about this failure"
         else
-          e.message
+          "RabbitMQ connection error, will retry"
         end
 
-        if @logger.debug?
-          @logger.error("RabbitMQ connection error, will retry.",
-                        :error_message => error_message,
-                        :exception => e.class.name,
-                        :backtrace => e.backtrace)
-        else
-          @logger.error("RabbitMQ connection error, will retry.",
-                        :error_message => error_message,
-                        :exception => e.class.name)
-        end
+        @logger.error(message, error_details(e))
 
         sleep_for_retry
         retry
@@ -179,48 +170,43 @@ module LogStash
         @hare_info && @hare_info.connection && @hare_info.connection.open?
       end
 
-      def connected?
-        return nil unless @hare_info && @hare_info.connection
-        @hare_info.connection.connected?
-      end
-
       private
 
       def declare_exchange!(channel, exchange, exchange_type, durable)
-        @logger.debug? && @logger.debug("Declaring an exchange", :name => exchange,
-                      :type => exchange_type, :durable => durable)
-        exchange = channel.exchange(exchange, :type => exchange_type.to_sym, :durable => durable)
-        @logger.debug? && @logger.debug("Exchange declared")
-        exchange
-      rescue StandardError => e
-        @logger.error("Could not declare exchange!",
-                      :exchange => exchange, :type => exchange_type,
-                      :durable => durable, :error_class => e.class.name,
-                      :error_message => e.message, :backtrace => e.backtrace)
+        @logger.debug? && @logger.debug("Declaring an exchange", :name => exchange, :type => exchange_type, :durable => durable)
+        channel.exchange(exchange, :type => exchange_type.to_sym, :durable => durable)
+      rescue => e
+        @logger.error("Could not declare exchange", error_details(e, :exchange => exchange, :type => exchange_type, :durable => durable))
+
         raise e
       end
 
       def connect
-        @logger.debug? && @logger.debug("Connecting to RabbitMQ. Settings: #{rabbitmq_settings.inspect}")
+        @logger.debug? && @logger.debug("Connecting to RabbitMQ", rabbitmq_settings)
 
-        connection = MarchHare.connect(rabbitmq_settings)
+        # disable MarchHare's attempt to provide a "better" exception logging experience:
+        settings = rabbitmq_settings.merge :exception_handler => com.rabbitmq.client.impl.ForgivingExceptionHandler.new
+        connection = MarchHare.connect(settings) # MarchHare::Session.connect
+        # we could pass down the :logger => logger but that adds an extra:
+        #   `logger.info("Using TLS/SSL version #{tls}")` which isn't useful
+        # the rest of MH::Session logging is mostly debug level details
+        #
+        # NOTE: effectively redirects MarchHare's default std-out logging to LS
+        #       (MARCH_HARE_LOG_LEVEL=debug no longer has an effect)
+        connection.instance_variable_set(:@logger, LoggerAdapter.new(logger))
 
         connection.on_shutdown do |conn, cause|
-           @logger.warn("RabbitMQ connection was closed!",
-                          :url => connection_url(conn),
-                          :automatic_recovery => @automatic_recovery,
-                          :cause => cause)
+           @logger.warn("RabbitMQ connection was closed", url: connection_url(conn), automatic_recovery: @automatic_recovery, cause: cause)
         end
         connection.on_blocked do
-          @logger.warn("RabbitMQ connection blocked! Check your RabbitMQ instance!",
-                       :url => connection_url(connection))
+          @logger.warn("RabbitMQ connection blocked - please check the RabbitMQ server logs", url: connection_url(connection))
         end
         connection.on_unblocked do
-          @logger.warn("RabbitMQ connection unblocked!", :url => connection_url(connection))
+          @logger.warn("RabbitMQ connection unblocked", url: connection_url(connection))
         end
 
         channel = connection.create_channel
-        @logger.info("Connected to RabbitMQ at #{rabbitmq_settings[:host]}")
+        @logger.info("Connected to RabbitMQ", url: connection_url(connection))
 
         HareInfo.new(connection, channel)
       end
@@ -235,6 +221,44 @@ module LogStash
       def sleep_for_retry
         Stud.stoppable_sleep(@connect_retry_interval) { @rabbitmq_connection_stopping }
       end
+
+      def error_details(e, info = {})
+        details = info.merge(:exception => e.class, :message => e.message)
+        if e.is_a?(MarchHare::Exception) && e.cause
+          details[:cause] = e.cause # likely a Java exception
+        end
+        details[:backtrace] = e.backtrace if @logger.debug? || info[:backtrace] == true
+        details
+      end
+
+      # @private adapting MarchHare's Ruby Logger assumptions
+      class LoggerAdapter < SimpleDelegator
+
+        java_import java.lang.Throwable
+
+        [:trace, :debug, :info, :warn, :error, :fatal].each do |level|
+          # sample logging used by MarchHare that we're after:
+          #
+          #   rescue Exception => e
+          #     logger.error("Caught exception when recovering queue #{q.name}")
+          #     logger.error(e)
+          #   end
+          class_eval <<-RUBY, __FILE__, __LINE__
+            def #{level}(arg)
+              if arg.is_a?(Exception) || arg.is_a?(Throwable)
+                details = { :exception => arg.class }
+                details[:cause] = arg.cause if arg.cause
+                details[:backtrace] = arg.backtrace
+                __getobj__.#{level}(arg.message.to_s, details)
+              else
+                __getobj__.#{level}(arg) # String
+              end
+            end
+          RUBY
+        end
+
+      end
+
     end
   end
 end

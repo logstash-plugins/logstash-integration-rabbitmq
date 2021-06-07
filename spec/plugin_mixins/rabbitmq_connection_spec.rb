@@ -56,11 +56,11 @@ describe LogStash::PluginMixins::RabbitMQConnection do
                                            "ssl_certificate_password" => "123"}) }
 
     it "should set the timeout to the expected value" do
-      expect(instance.rabbitmq_settings[:timeout]).to eql(rabbitmq_settings["connection_timeout"])
+      expect(instance.rabbitmq_settings[:connection_timeout]).to eql(rabbitmq_settings["connection_timeout"])
     end
 
     it "should set heartbeat to the expected value" do
-      expect(instance.rabbitmq_settings[:heartbeat]).to eql(rabbitmq_settings["heartbeat"])
+      expect(instance.rabbitmq_settings[:requested_heartbeat]).to eql(rabbitmq_settings["heartbeat"])
     end
 
     it "should set tls to the expected value" do
@@ -129,6 +129,10 @@ describe LogStash::PluginMixins::RabbitMQConnection do
       allow(connection).to receive(:on_blocked)
       allow(connection).to receive(:on_unblocked)
       allow(connection).to receive(:on_shutdown)
+      allow(connection).to receive(:host).and_return host
+      allow(connection).to receive(:port).and_return port
+      allow(connection).to receive(:vhost).and_return nil
+      allow(connection).to receive(:user).and_return 'guest'
 
       instance.register
     end

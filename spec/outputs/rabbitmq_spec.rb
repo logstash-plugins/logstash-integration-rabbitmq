@@ -60,6 +60,10 @@ describe LogStash::Outputs::RabbitMQ do
       allow(connection).to receive(:on_shutdown)
       allow(connection).to receive(:on_recovery_start)
       allow(connection).to receive(:on_recovery)
+      allow(connection).to receive(:host).and_return host
+      allow(connection).to receive(:port).and_return port
+      allow(connection).to receive(:vhost).and_return nil
+      allow(connection).to receive(:user).and_return 'guest'
       allow(channel).to receive(:exchange).and_return(exchange)
 
       instance.register
@@ -206,7 +210,7 @@ describe "LogStash::Outputs::RabbitMQ with a live server", :integration => true 
     instance.register
 
     20.times do
-      instance.connected? ? break : sleep(0.1)
+      instance.send(:connection_open?) ? break : sleep(0.1)
     end
 
     # Extra time to make sure the output can attach
@@ -238,12 +242,12 @@ describe "LogStash::Outputs::RabbitMQ with a live server", :integration => true 
 
   context "using defaults" do
     it "should start, connect, and stop cleanly" do
-      expect(instance.connected?).to be_truthy
+      expect(instance.send(:connection_open?)).to be_truthy
     end
 
     it "should close cleanly" do
       instance.close
-      expect(instance.connected?).to be_falsey
+      expect(instance.send(:connection_open?)).to be_falsey
     end
 
     it 'applies per message settings' do
