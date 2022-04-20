@@ -1,3 +1,6 @@
+## 7.3.1
+  - DOCS: clarify the availability and cost of using the `metadata_enabled` option [#52](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/52)
+
 ## 7.3.0
   - Refactor: logging improvements [#47](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/47)
     * integrated MarchHare logging to be part of Logstash's log instead of using std-err
