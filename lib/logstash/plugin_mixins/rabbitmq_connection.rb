@@ -85,7 +85,7 @@ module LogStash
         config :tls_certificate_path, :validate => :path, :obsolete => "This setting is obsolete. Use ssl_certificate_path instead"
 
         # TLS certificate password
-        config :tls_certificate_password, :validate => :string, :obsolete => "This setting is obsolete. Use ssl_certificate_password instead"
+        config :tls_certificate_password, :validate => :password, :obsolete => "This setting is obsolete. Use ssl_certificate_password instead"
 
         # Extra queue arguments as an array.
         # To make a RabbitMQ queue mirrored, use: `{"x-ha-policy" => "all"}`
