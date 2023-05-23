@@ -5,4 +5,4 @@
 set -ex
 
 # runs unit-test specs
-jruby -rbundler/setup -S rspec --format=documentation
+bundle exec rspec spec --format=documentation
