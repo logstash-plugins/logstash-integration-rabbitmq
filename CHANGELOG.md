@@ -1,3 +1,6 @@
+## 7.3.2
+  - Change `tls_certificate_password` type to `password` to protect from leaks in the logs [#54](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/54)
+
 ## 7.3.1
   - DOCS: clarify the availability and cost of using the `metadata_enabled` option [#52](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/52)
 

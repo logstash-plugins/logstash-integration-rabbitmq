@@ -5,4 +5,4 @@
 set -ex
 
 # runs integration tests, assuming that a rabbitmq server is running on ${RABBITMQ_HOST} (if provided) or on localhost.
-jruby -rbundler/setup -S rspec --format=documentation --tag integration
+bundle exec rspec spec --tag integration --format=documentation

@@ -81,12 +81,6 @@ module LogStash
         # Passive queue creation? Useful for checking queue existance without modifying server state
         config :passive, :validate => :boolean, :default => false
 
-        # TLS certifcate path
-        config :tls_certificate_path, :validate => :path, :obsolete => "This setting is obsolete. Use ssl_certificate_path instead"
-
-        # TLS certificate password
-        config :tls_certificate_password, :validate => :string, :obsolete => "This setting is obsolete. Use ssl_certificate_password instead"
-
         # Extra queue arguments as an array.
         # To make a RabbitMQ queue mirrored, use: `{"x-ha-policy" => "all"}`
         config :arguments, :validate => :array, :default => {}
