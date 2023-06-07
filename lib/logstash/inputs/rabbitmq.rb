@@ -308,7 +308,14 @@ module LogStash
       end
 
       def shutdown_consumer
-        return unless @consumer
+        # There are two possible flows to shutdown consumers. When the plugin is the one shutting down, it should send a channel
+        # cancellation message by invoking channel.basic_cancel(consumer_tag) and waiting for the consumer to terminate
+        # (broker replies with an basic.cancel-ok). This back and forth is handled by MarchHare. On the other hand, when the broker
+        # requests the client to shutdown (eg. due to queue deletion). It sends to the client a basic.cancel message, which is handled
+        # internally by the client, unregistering the consumer and then invoking the :on_cancellation callback. In that case, the plugin
+        # should not do anything as the consumer is already cancelled/unregistered.
+        return if !@consumer || @consumer.cancelled? || @consumer.terminated?
+
         @hare_info.channel.basic_cancel(@consumer.consumer_tag)
         connection = @hare_info.connection
         until @consumer.terminated?
