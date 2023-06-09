@@ -63,6 +63,62 @@ describe LogStash::Inputs::RabbitMQ do
       expect(instance.codec.config_name).to eq "json"
     end
 
+    describe "and #stop is called" do
+      let(:consumer_tag) { "foo-bar-queue" }
+      let(:consumer) { double("consumer") }
+
+      before do
+        instance.register
+        instance.setup!
+        instance.instance_variable_set(:@consumer, consumer)
+
+        allow(instance).to receive(:close_connection)
+        allow(consumer).to receive(:consumer_tag).and_return(consumer_tag)
+      end
+
+      context "with a cancelled consumer" do
+        before do
+          allow(consumer).to receive(:cancelled?).and_return(true)
+          allow(consumer).to receive(:terminated?).and_return(false)
+        end
+
+        it "should not call basic_cancel" do
+          expect(channel).to_not receive(:basic_cancel)
+          instance.stop
+        end
+      end
+
+      context "with a terminated consumer" do
+        before do
+          allow(consumer).to receive(:cancelled?).and_return(false)
+          allow(consumer).to receive(:terminated?).and_return(true)
+        end
+
+        it "should not call basic_cancel" do
+          expect(channel).to_not receive(:basic_cancel)
+          instance.stop
+        end
+      end
+
+      context "with a running consumer" do
+        before do
+          allow(consumer).to receive(:cancelled?).and_return(false)
+          allow(consumer).to receive(:terminated?).and_return(false, false, true)
+        end
+
+        it "should call basic_cancel" do
+          expect(channel).to receive(:basic_cancel).with(consumer_tag)
+          instance.stop
+        end
+
+        it "should log terminating info" do
+          allow(channel).to receive(:basic_cancel).with(consumer_tag)
+          expect(instance.logger).to receive(:info).with(/Waiting for RabbitMQ consumer to terminate before stopping/, anything)
+          instance.stop
+        end
+      end
+    end
+
     describe "#connect!" do
       subject { hare_info }
 

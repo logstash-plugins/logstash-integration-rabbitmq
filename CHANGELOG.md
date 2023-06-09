@@ -1,3 +1,6 @@
+## 7.3.3
+  - Fixed the cancellation flow to avoid multiple invocations of basic.cancel [#55](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/55)
+
 ## 7.3.2
   - Change `tls_certificate_password` type to `password` to protect from leaks in the logs [#54](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/54)
 
