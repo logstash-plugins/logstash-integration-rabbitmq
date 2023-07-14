@@ -328,21 +328,6 @@ messages allowed.
   * Value type is <<string,string>>
   * Default value is `""`
 
-The properties to extract from each message and store in a
-@metadata field.
-
-Technically the exchange, redeliver, and routing-key
-properties belong to the envelope and not the message but we
-ignore that distinction here. However, we extract the
-headers separately via get_headers even though the header
-table technically is a message property.
-
-Freezing all strings so that code modifying the event's
-@metadata field can't touch them.
-
-If updating this list, remember to update the documentation
-above too.
-The default codec for this plugin is JSON. You can override this to suit your particular needs however.
 The name of the queue Logstash will consume events from. If
 left empty, a transient queue with an randomly chosen name
 will be created.
