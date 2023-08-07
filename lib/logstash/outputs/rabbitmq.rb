@@ -72,7 +72,7 @@ module LogStash
       def publish(event, message)
         raise ArgumentError, "No exchange set in HareInfo!!!" unless @hare_info.exchange
         routing_key = event.sprintf(@key)
-        connect_retry_interval = event.sprintf(@connect_retry_interval * 1000).to_i
+        connect_retry_interval = event.sprintf(@connect_retry_interval).to_i * 1000
         message_properties = @message_properties_template.build(event)
         @gated_executor.execute do
           local_exchange.publish(message, :routing_key => routing_key, :properties => message_properties)
