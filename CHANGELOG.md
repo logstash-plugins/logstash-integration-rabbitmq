@@ -1,3 +1,6 @@
+## 8.0.0
+  - Removed obsolete `verify_ssl` and `debug` options
+
 ## 7.3.3
   - Fixed the cancellation flow to avoid multiple invocations of basic.cancel [#55](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/55)
 
