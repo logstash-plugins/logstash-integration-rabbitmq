@@ -1,4 +1,4 @@
-## 8.0.0
+## 7.4.0
   - Removed obsolete `verify_ssl` and `debug` options [#60](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/60)
 
 ## 7.3.3
