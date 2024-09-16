@@ -54,17 +54,11 @@ module LogStash
         # Version of the SSL protocol to use.
         config :ssl_version, :validate => :string, :default => "TLSv1.2"
 
-        config :verify_ssl, :validate => :boolean, :default => false,
-          :obsolete => "This function did not actually function correctly and was removed." +
-                       "If you wish to validate SSL certs use the ssl_certificate_path and ssl_certificate_password options."
-
         # Path to an SSL certificate in PKCS12 (.p12) format used for verifying the remote host
         config :ssl_certificate_path, :validate => :path
 
         # Password for the encrypted PKCS12 (.p12) certificate file specified in ssl_certificate_path
         config :ssl_certificate_password, :validate => :password
-
-        config :debug, :validate => :boolean, :obsolete => "Use the logstash --debug flag for this instead."
 
         # Set this to automatically recover from a broken connection. You almost certainly don't want to override this!!!
         config :automatic_recovery, :validate => :boolean, :default => true
