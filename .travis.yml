@@ -4,7 +4,12 @@ import:
 jobs:
   include:
     - stage: Integration
-      env: ELASTIC_STACK_VERSION=8.x SNAPSHOT=true INTEGRATION=true
-    - env: ELASTIC_STACK_VERSION=7.x SNAPSHOT=true INTEGRATION=true
-    - env: ELASTIC_STACK_VERSION=7.x INTEGRATION=true
-    - env: ELASTIC_STACK_VERSION=6.x INTEGRATION=true
+      env: ELASTIC_STACK_VERSION=main SNAPSHOT=true INTEGRATION=true
+    - env: ELASTIC_STACK_VERSION=8.future SNAPSHOT=true INTEGRATION=true
+    - env: ELASTIC_STACK_VERSION=8.next SNAPSHOT=true INTEGRATION=true
+    - env: ELASTIC_STACK_VERSION=8.current SNAPSHOT=true INTEGRATION=true
+    - env: ELASTIC_STACK_VERSION=8.previous SNAPSHOT=true INTEGRATION=true
+    - env: ELASTIC_STACK_VERSION=7.current SNAPSHOT=true INTEGRATION=true
+    - env: ELASTIC_STACK_VERSION=8.current INTEGRATION=true
+    - env: ELASTIC_STACK_VERSION=8.previous INTEGRATION=true
+    - env: ELASTIC_STACK_VERSION=7.current INTEGRATION=true
