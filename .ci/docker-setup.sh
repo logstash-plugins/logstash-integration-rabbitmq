@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-# This is intended to be run from the plugin's root directory. `.ci/docker-test.sh`
+# This is intended to be run the plugin's root directory. `ci/unit/docker-test.sh`
 # Ensure you have Docker installed locally and set the ELASTIC_STACK_VERSION environment variable.
 # - ELASTIC_STACK_VERSION: an exact version (e.g., "7.5.1"), or a MAJOR.x branch specifier (e.g., "7.x")
 # - SNAPSHOT: (optional) when $ELASTIC_STACK_VERSION is MAJOR.x, selects an unreleased snapshot from that branch
@@ -10,16 +10,28 @@ set -e
 
 pull_docker_snapshot() {
   project="${1?project name required}"
+  stack_version_alias="${2?stack version alias required}"
   local docker_image="docker.elastic.co/${project}/${project}${DISTRIBUTION_SUFFIX}:${ELASTIC_STACK_VERSION}"
   echo "Pulling $docker_image"
-  docker pull "$docker_image"
+  if docker pull "$docker_image" ; then
+    echo "docker pull successful"
+  else
+    case $stack_version_alias in
+      "8.previous"|"8.current"|"8.next")
+        exit 1
+        ;;
+      *)
+        exit 2
+        ;;
+    esac
+  fi
 }
 
 # TEST_MODE should be one of "unit" or "integration" (defaults to "unit" unless INTEGRATION=true)
 : "${TEST_MODE:=$([[ "${INTEGRATION}" = "true" ]] && echo "integration" || echo "unit")}"
 export TEST_MODE
 
-VERSION_URL="https://raw.githubusercontent.com/elastic/logstash/master/ci/logstash_releases.json"
+VERSION_URL="https://raw.githubusercontent.com/elastic/logstash/main/ci/logstash_releases.json"
 
 if [ -z "${ELASTIC_STACK_VERSION}" ]; then
     echo "Please set the ELASTIC_STACK_VERSION environment variable"
@@ -27,8 +39,11 @@ if [ -z "${ELASTIC_STACK_VERSION}" ]; then
     exit 1
 fi
 
+# The ELASTIC_STACK_VERSION may be an alias, save the original before translating it
+ELASTIC_STACK_VERSION_ALIAS="$ELASTIC_STACK_VERSION"
+
 echo "Fetching versions from $VERSION_URL"
-VERSIONS=$(curl $VERSION_URL)
+VERSIONS=$(curl -s $VERSION_URL)
 
 if [[ "$SNAPSHOT" = "true" ]]; then
   ELASTIC_STACK_RETRIEVED_VERSION=$(echo $VERSIONS | jq '.snapshots."'"$ELASTIC_STACK_VERSION"'"')
@@ -43,6 +58,10 @@ if [[ "$ELASTIC_STACK_RETRIEVED_VERSION" != "null" ]]; then
   ELASTIC_STACK_RETRIEVED_VERSION="${ELASTIC_STACK_RETRIEVED_VERSION#\"}"
   echo "Translated $ELASTIC_STACK_VERSION to ${ELASTIC_STACK_RETRIEVED_VERSION}"
   export ELASTIC_STACK_VERSION=$ELASTIC_STACK_RETRIEVED_VERSION
+elif [[ "$ELASTIC_STACK_VERSION" == "8.next" ]]; then
+  # we know "8.next" only exists between FF and GA of a minor
+  # exit 1 so the build is skipped
+  exit 1
 fi
 
 case "${DISTRIBUTION}" in
@@ -54,7 +73,7 @@ export DISTRIBUTION_SUFFIX
 echo "Testing against version: $ELASTIC_STACK_VERSION (distribution: ${DISTRIBUTION:-"default"})"
 
 if [[ "$ELASTIC_STACK_VERSION" = *"-SNAPSHOT" ]]; then
-    pull_docker_snapshot "logstash"
+    pull_docker_snapshot "logstash" $ELASTIC_STACK_VERSION_ALIAS
 fi
 
 if [ -f Gemfile.lock ]; then
@@ -63,5 +82,8 @@ fi
 
 CURRENT_DIR=$(dirname "${BASH_SOURCE[0]}")
 
+#cd .ci
+
+export BUILDKIT_PROGRESS=plain
 docker-compose --file ".ci/docker-compose.yml" --file ".ci/${TEST_MODE}/docker-compose.override.yml" down
 docker-compose --file ".ci/docker-compose.yml" --file ".ci/${TEST_MODE}/docker-compose.override.yml" --verbose build

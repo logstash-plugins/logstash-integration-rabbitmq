@@ -18,4 +18,4 @@ services:
     image: rabbitmq:latest
     hostname: rabbit
     ports:
-      - "5672:5672"
+      - "15672:5672"
