@@ -72,6 +72,9 @@ module LogStash
         # Heartbeat delay in seconds. If unspecified no heartbeats will be sent
         config :heartbeat, :validate => :number
 
+        # Max inbound message size in bytes. If not specified default value of 67108864 bytes will be used
+        config :max_inbound_message_body_size, :validate => :number
+
         # Passive queue creation? Useful for checking queue existance without modifying server state
         config :passive, :validate => :boolean, :default => false
 
@@ -104,6 +107,7 @@ module LogStash
 
         s[:connection_timeout] = @connection_timeout || 0
         s[:requested_heartbeat] = @heartbeat || 0
+        s[:max_inbound_message_body_size] = @max_inbound_message_body_size || 67108864
 
         if @ssl
           s[:tls] = @ssl_version
