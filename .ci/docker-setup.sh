@@ -31,8 +31,6 @@ pull_docker_snapshot() {
 : "${TEST_MODE:=$([[ "${INTEGRATION}" = "true" ]] && echo "integration" || echo "unit")}"
 export TEST_MODE
 
-VERSION_URL="https://raw.githubusercontent.com/elastic/logstash/main/ci/logstash_releases.json"
-
 if [ -z "${ELASTIC_STACK_VERSION}" ]; then
     echo "Please set the ELASTIC_STACK_VERSION environment variable"
     echo "For example: export ELASTIC_STACK_VERSION=7.x"
@@ -42,26 +40,22 @@ fi
 # The ELASTIC_STACK_VERSION may be an alias, save the original before translating it
 ELASTIC_STACK_VERSION_ALIAS="$ELASTIC_STACK_VERSION"
 
-echo "Fetching versions from $VERSION_URL"
-VERSIONS=$(curl -s $VERSION_URL)
-
+echo "Computing latest stream version"
+VERSION_CONFIG_FILE="$(dirname "$0")/logstash-versions.yml"
 if [[ "$SNAPSHOT" = "true" ]]; then
-  ELASTIC_STACK_RETRIEVED_VERSION=$(echo $VERSIONS | jq '.snapshots."'"$ELASTIC_STACK_VERSION"'"')
-  echo $ELASTIC_STACK_RETRIEVED_VERSION
+  ELASTIC_STACK_RETRIEVED_VERSION=$(ruby -r yaml -e "puts YAML.load_file('$VERSION_CONFIG_FILE')['snapshots']['$ELASTIC_STACK_VERSION']")
 else
-  ELASTIC_STACK_RETRIEVED_VERSION=$(echo $VERSIONS | jq '.releases."'"$ELASTIC_STACK_VERSION"'"')
+  ELASTIC_STACK_RETRIEVED_VERSION=$(ruby -r yaml -e "puts YAML.load_file('$VERSION_CONFIG_FILE')['releases']['$ELASTIC_STACK_VERSION']")
 fi
 
-if [[ "$ELASTIC_STACK_RETRIEVED_VERSION" != "null" ]]; then
-  # remove starting and trailing double quotes
-  ELASTIC_STACK_RETRIEVED_VERSION="${ELASTIC_STACK_RETRIEVED_VERSION%\"}"
-  ELASTIC_STACK_RETRIEVED_VERSION="${ELASTIC_STACK_RETRIEVED_VERSION#\"}"
-  echo "Translated $ELASTIC_STACK_VERSION to ${ELASTIC_STACK_RETRIEVED_VERSION}"
+if [[ -n "$ELASTIC_STACK_RETRIEVED_VERSION" ]]; then
+  echo "Translating ELASTIC_STACK_VERSION to ${ELASTIC_STACK_RETRIEVED_VERSION}"
   export ELASTIC_STACK_VERSION=$ELASTIC_STACK_RETRIEVED_VERSION
-elif [[ "$ELASTIC_STACK_VERSION" == "8.next" ]]; then
-  # we know "8.next" only exists between FF and GA of a minor
-  # exit 1 so the build is skipped
-  exit 1
+elif [[ "$ELASTIC_STACK_VERSION" == "9.next" ]]; then
+  exit 99
+else
+  # No version translation found, assuming user provided explicit version
+  echo "No version found for $ELASTIC_STACK_VERSION, using as-is"
 fi
 
 case "${DISTRIBUTION}" in
