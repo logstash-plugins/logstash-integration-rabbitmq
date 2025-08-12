@@ -50,6 +50,7 @@ describe LogStash::PluginMixins::RabbitMQConnection do
 
     let(:rabbitmq_settings) { super().merge({"connection_timeout" => 123,
                                            "heartbeat" => 456,
+                                           "max_inbound_message_body_size" => 789,
                                            "ssl" => true,
                                            "ssl_version" => "TLSv1.1",
                                            "ssl_certificate_path" => path,
@@ -61,6 +62,10 @@ describe LogStash::PluginMixins::RabbitMQConnection do
 
     it "should set heartbeat to the expected value" do
       expect(instance.rabbitmq_settings[:requested_heartbeat]).to eql(rabbitmq_settings["heartbeat"])
+    end
+
+    it "should set max_inbound_message_body_size to the expected value" do
+      expect(instance.rabbitmq_settings[:max_inbound_message_body_size]).to eql(rabbitmq_settings["max_inbound_message_body_size"])
     end
 
     it "should set tls to the expected value" do
