@@ -302,7 +302,7 @@ module LogStash
       end
 
       def stop
-        @internal_queue.put(INTERNAL_QUEUE_POISON)
+        @internal_queue&.put(INTERNAL_QUEUE_POISON)
         shutdown_consumer
         close_connection
       end

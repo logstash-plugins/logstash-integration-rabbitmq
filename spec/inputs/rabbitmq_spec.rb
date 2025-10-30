@@ -33,7 +33,6 @@ describe LogStash::Inputs::RabbitMQ do
     let(:connection) { double("MarchHare Connection") }
     let(:channel) { double("Channel") }
     let(:exchange) { double("Exchange") }
-    let(:channel) { double("Channel") }
     let(:queue) { double("queue") }
 
     # Doing this in a before block doesn't give us enough control over scope
@@ -384,24 +383,30 @@ describe "LogStash::Inputs::RabbitMQ with a live server", :integration => true d
   let(:hare_info) { instance.instance_variable_get(:@hare_info) }
   let(:output_queue) { Queue.new }
 
-  # Spawn a connection in the bg and wait up (n) seconds
+  # Spawn a connection and waits for it to be ready.
   def spawn_and_wait(instance)
     instance.register
 
     output_queue # materialize in this thread
 
-    Thread.new {
+    @consumer_thread = Thread.new {
       instance.run(output_queue)
     }
 
-    20.times do
-      instance.send(:connection_open?) ? break : sleep(0.1)
+    # Ensure that the connection and channel are fully started.
+    Timeout.timeout(2, Timeout::Error, "Timeout waiting for connection to open and channel to be available") do
+      until instance.send(:connection_open?) && instance.instance_variable_get(:@hare_info)&.channel
+        sleep 0.05
+      end
     end
 
-    # Extra time to make sure the consumer can attach
-    # Without this there's a chance the shutdown code will execute
-    # before consumption begins. This is tricky to do more elegantly
-    sleep 4
+    # Ensure that the consumer is fully started.
+    hare_info = instance.instance_variable_get(:@hare_info)
+    Timeout.timeout(10, Timeout::Error, "Timeout waiting for channel to have consumers.") do
+      until hare_info.channel.consumers && !hare_info.channel.consumers.empty?
+        sleep 0.05
+      end
+    end
   end
 
   let(:test_connection) { MarchHare.connect(instance.send(:rabbitmq_settings)) }
@@ -418,6 +423,11 @@ describe "LogStash::Inputs::RabbitMQ with a live server", :integration => true d
 
   after do
     instance.stop()
+    # Stop the thread gracefully before tearing down connections.
+    @consumer_thread.join
+    # Exchange deletion needs to be placed after thread is finished,
+    # as the exchange may be dynamically created during the test context initialization.
+    exchange&.delete if defined?(exchange)
     test_channel.close
     test_connection.close
   end
@@ -439,10 +449,6 @@ describe "LogStash::Inputs::RabbitMQ with a live server", :integration => true d
     let(:exchange_name) { "logstash-input-rabbitmq-#{rand(0xFFFFFFFF)}" }
     #let(:queue) { test_channel.queue(queue_name, :auto_delete => true) }
     let(:queue_name) { "logstash-input-rabbitmq-#{rand(0xFFFFFFFF)}" }
-
-    after do
-      exchange.delete
-    end
 
     context "when the message has a payload but no message headers" do
       before do
