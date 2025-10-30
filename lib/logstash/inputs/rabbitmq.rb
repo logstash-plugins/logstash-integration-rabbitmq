@@ -59,6 +59,7 @@ module LogStash
     class RabbitMQ < LogStash::Inputs::Threadable
 
       java_import java.util.concurrent.TimeUnit
+      java_import java.util.concurrent.CountDownLatch
 
       include ::LogStash::PluginMixins::RabbitMQConnection
 
@@ -189,6 +190,7 @@ module LogStash
         connect!
         declare_queue!
         bind_exchange!
+        @terminated = CountDownLatch.new(1)
         @hare_info.channel.prefetch = @prefetch_count
       rescue => e
         # when encountering an exception during shut-down,
@@ -268,7 +270,11 @@ module LogStash
             next
           end
 
-          break if payload == INTERNAL_QUEUE_POISON
+          if payload == INTERNAL_QUEUE_POISON
+            @logger.info("RabbitMQ consumer thread received shutdown signal, exiting")
+            @terminated.countDown
+            break
+          end
 
           metadata, data = payload
           @codec.decode(data) do |event|
@@ -302,9 +308,20 @@ module LogStash
       end
 
       def stop
-        @internal_queue&.put(INTERNAL_QUEUE_POISON)
+        stop_consumer_thread
         shutdown_consumer
         close_connection
+      end
+
+      def stop_consumer_thread
+        # After sending the poison pill, we need to wait for the consumer thread to actually exit.
+        # Closing channel right away may lead to messages not being acked properly or a race condition
+        # where the consumer thread tries to ack a message on a closed channel.
+        @internal_queue.put(INTERNAL_QUEUE_POISON)
+        timed_out = !@terminated.await(2, TimeUnit::SECONDS)
+        if timed_out
+          @logger.warn("Timeout waiting for RabbitMQ consumer thread to terminate")
+        end
       end
 
       def shutdown_consumer
