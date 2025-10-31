@@ -75,6 +75,12 @@ describe LogStash::Inputs::RabbitMQ do
         allow(consumer).to receive(:consumer_tag).and_return(consumer_tag)
       end
 
+      after do
+        # This unit tests don't initialize consumer thread, so sync signal should be manually sent.
+        instance.instance_variable_get(:@terminated).countDown
+        instance.stop
+      end
+
       context "with a cancelled consumer" do
         before do
           allow(consumer).to receive(:cancelled?).and_return(true)
@@ -83,7 +89,6 @@ describe LogStash::Inputs::RabbitMQ do
 
         it "should not call basic_cancel" do
           expect(channel).to_not receive(:basic_cancel)
-          instance.stop
         end
       end
 
@@ -95,7 +100,6 @@ describe LogStash::Inputs::RabbitMQ do
 
         it "should not call basic_cancel" do
           expect(channel).to_not receive(:basic_cancel)
-          instance.stop
         end
       end
 
@@ -107,13 +111,11 @@ describe LogStash::Inputs::RabbitMQ do
 
         it "should call basic_cancel" do
           expect(channel).to receive(:basic_cancel).with(consumer_tag)
-          instance.stop
         end
 
         it "should log terminating info" do
           allow(channel).to receive(:basic_cancel).with(consumer_tag)
           expect(instance.logger).to receive(:info).with(/Waiting for RabbitMQ consumer to terminate before stopping/, anything)
-          instance.stop
         end
       end
     end
