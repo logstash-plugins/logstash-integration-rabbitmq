@@ -77,7 +77,7 @@ describe LogStash::Inputs::RabbitMQ do
 
       after do
         # This unit tests don't initialize consumer thread, so sync signal should be manually sent.
-        instance.instance_variable_get(:@terminated).countDown
+        instance.instance_variable_get(:@poison_latch).countDown
         instance.stop
       end
 

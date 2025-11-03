@@ -190,7 +190,7 @@ module LogStash
         connect!
         declare_queue!
         bind_exchange!
-        @terminated = CountDownLatch.new(1)
+        @poison_latch = CountDownLatch.new(1)
         @hare_info.channel.prefetch = @prefetch_count
       rescue => e
         # when encountering an exception during shut-down,
@@ -272,7 +272,7 @@ module LogStash
 
           if payload == INTERNAL_QUEUE_POISON
             @logger.info("RabbitMQ consumer thread received shutdown signal, exiting")
-            @terminated.countDown
+            @poison_latch.countDown
             break
           end
 
@@ -318,7 +318,7 @@ module LogStash
         # Closing channel right away may lead to messages not being acked properly or a race condition
         # where the consumer thread tries to ack a message on a closed channel.
         @internal_queue.put(INTERNAL_QUEUE_POISON)
-        timed_out = !@terminated.await(2, TimeUnit::SECONDS)
+        timed_out = !@poison_latch.await(2, TimeUnit::SECONDS)
         if timed_out
           @logger.warn("Timeout waiting for RabbitMQ consumer thread to terminate")
         end
