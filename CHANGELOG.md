@@ -1,3 +1,6 @@
+## 7.4.1
+  - Improve thread safety to avoid race conditions during shutdown and integration tests. [#67](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/66)
+
 ## 7.4.0
   - Removed obsolete `verify_ssl` and `debug` options [#60](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/60)
 
