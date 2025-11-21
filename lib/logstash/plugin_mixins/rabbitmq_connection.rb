@@ -75,6 +75,9 @@ module LogStash
         # Passive queue creation? Useful for checking queue existance without modifying server state
         config :passive, :validate => :boolean, :default => false
 
+        # Max inbound message size (in bytes). Optional.
+        config :max_inbound_message_body_size, :validate => :number
+
         # Extra queue arguments as an array.
         # To make a RabbitMQ queue mirrored, use: `{"x-ha-policy" => "all"}`
         config :arguments, :validate => :array, :default => {}
@@ -104,6 +107,7 @@ module LogStash
 
         s[:connection_timeout] = @connection_timeout || 0
         s[:requested_heartbeat] = @heartbeat || 0
+        s[:max_inbound_message_body_size] = @max_inbound_message_body_size if @max_inbound_message_body_size
 
         if @ssl
           s[:tls] = @ssl_version
