@@ -72,9 +72,14 @@ module LogStash
       def publish(event, message)
         raise ArgumentError, "No exchange set in HareInfo!!!" unless @hare_info.exchange
         routing_key = event.sprintf(@key)
+        connect_retry_interval = event.sprintf(@connect_retry_interval).to_i * 1000
         message_properties = @message_properties_template.build(event)
         @gated_executor.execute do
           local_exchange.publish(message, :routing_key => routing_key, :properties => message_properties)
+          local_got_ack = local_channel.wait_for_confirms(connect_retry_interval)
+          if !local_got_ack
+            raise MarchHare::Exception.new('Got an nack message')
+          end
         end
       rescue MarchHare::Exception, IOError, AlreadyClosedException, TimeoutException => e
         @logger.error("Error while publishing, will retry", error_details(e, backtrace: true))
@@ -96,6 +101,7 @@ module LogStash
         channel = @thread_local_channel.get
         if !channel
           channel = @hare_info.connection.create_channel
+          channel.confirm_select
           @thread_local_channel.set(channel)
         end
         channel
