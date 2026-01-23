@@ -6,13 +6,10 @@ before_script:
 
 jobs:
   include:
-    - stage: Integration
-      env: INTEGRATION=true ELASTIC_STACK_VERSION=7.current
     - env: INTEGRATION=true ELASTIC_STACK_VERSION=8.previous
     - env: INTEGRATION=true ELASTIC_STACK_VERSION=8.current
     - env: INTEGRATION=true ELASTIC_STACK_VERSION=9.current
     - env: INTEGRATION=true ELASTIC_STACK_VERSION=9.previous
-    - env: INTEGRATION=true SNAPSHOT=true ELASTIC_STACK_VERSION=7.current
     - env: INTEGRATION=true SNAPSHOT=true ELASTIC_STACK_VERSION=8.previous
     - env: INTEGRATION=true SNAPSHOT=true ELASTIC_STACK_VERSION=8.current
     - env: INTEGRATION=true SNAPSHOT=true ELASTIC_STACK_VERSION=9.previous
