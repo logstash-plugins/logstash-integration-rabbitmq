@@ -15,7 +15,7 @@ services:
     environment:
       RABBITMQ_HOST: "rabbitmq"
   rabbitmq:
-    image: rabbitmq:latest
+    image: rabbitmq:3.13.7
     hostname: rabbit
     ports:
       - "15672:5672"
