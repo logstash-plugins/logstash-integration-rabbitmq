@@ -22,6 +22,7 @@ describe LogStash::Outputs::RabbitMQ do
   }
   let(:instance) { klass.new(rabbitmq_settings) }
   let(:hare_info) { instance.instance_variable_get(:@hare_info) }
+  let(:headers) { Hash.new }
 
   shared_examples 'recovers from exception gracefully' do
     it 'should execute publish twice due to a retry' do
@@ -104,8 +105,40 @@ describe LogStash::Outputs::RabbitMQ do
         context 'with message_properties' do
           let(:rabbitmq_settings) { super().merge("message_properties" => message_properties) }
           let(:message_properties) { Hash.new }
+
+          context 'with headers' do            
+            
+            let(:message_properties) { super().merge("headers" => headers) }
+            let(:headers)  { Hash.new }
+            let(:headers) { super().merge("myheader" => myheader_value) }
+            
+            context 'with constant value' do
+              let(:myheader_value) { "asdf" }
+              it 'publishes headers with constant-value' do
+                instance.send(:publish, event, encoded_event)
+                expect(exchange).to have_received(:publish).with(anything, hash_including(:properties => hash_including(:headers => hash_including("myheader" => "asdf"))))
+              end
+            end
+
+            context 'with templated value' do
+              let(:myheader_value) { "%{[@metadata][priority]}" }
+              context 'when event expands template value' do
+                before do
+                  expect(event).to receive(:sprintf).with(myheader_value).and_return("another_value")
+                end
+
+                it 'publishes with the value extracted from the event' do
+                  instance.send(:publish, event, encoded_event)
+                  expect(exchange).to have_received(:publish).with(anything, hash_including(:properties => hash_including(:headers => hash_including("myheader" => "another_value"))))
+                end
+              end
+            
+            end
+
+          end
+          
           context 'priority' do
-            let(:message_properties) { super().merge("priority" => priority) }
+            let(:message_properties) { super().merge("priority" => priority) }           
             context 'as literal Integer value' do
               let(:priority) { 3 }
               it 'publishes with the constant-value priority' do
@@ -121,7 +154,6 @@ describe LogStash::Outputs::RabbitMQ do
                 expect(exchange).to have_received(:publish).with(anything, hash_including(:properties => hash_including(:priority => 7)))
               end
             end
-
             context 'as template value' do
               let(:priority) { "%{[@metadata][priority]}" }
               context 'when event expands template value' do
