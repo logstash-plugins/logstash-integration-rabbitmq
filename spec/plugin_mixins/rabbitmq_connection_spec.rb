@@ -75,6 +75,16 @@ describe LogStash::PluginMixins::RabbitMQConnection do
       expect(instance.rabbitmq_settings[:tls_certificate_password]).to eql(rabbitmq_settings["ssl_certificate_password"])
     end
 
+    it "sets max_inbound_message_body_size when configured" do
+      instance_with_size = klass.new(rabbitmq_settings.merge("max_inbound_message_body_size" => 104857600))
+      expect(instance_with_size.rabbitmq_settings[:max_inbound_message_body_size]).to eql(104857600)
+    end
+
+    it "does not set max_inbound_message_body_size when not configured" do
+      expect(instance.rabbitmq_settings.key?(:max_inbound_message_body_size)).to be(false)
+    end
+
+
     it_behaves_like 'it sets the addresses correctly'
 
     context 'with a custom port' do
