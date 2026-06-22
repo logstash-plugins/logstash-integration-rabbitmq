@@ -8,4 +8,4 @@ set -ex
 
 export BUILDKIT_PROGRESS=plain
 
-docker-compose -f ".ci/docker-compose.yml" -f ".ci/${TEST_MODE}/docker-compose.override.yml" up --exit-code-from logstash
+docker compose -f ".ci/docker-compose.yml" -f ".ci/${TEST_MODE}/docker-compose.override.yml" up --exit-code-from logstash
