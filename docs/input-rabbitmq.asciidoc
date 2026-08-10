@@ -97,6 +97,7 @@ This plugin supports the following configuration options plus the <<plugins-{typ
 | <<plugins-{type}s-{plugin}-key>> |<<string,string>>|No
 | <<plugins-{type}s-{plugin}-metadata_enabled>> |<<boolean,boolean>>|No
 | <<plugins-{type}s-{plugin}-passive>> |<<boolean,boolean>>|No
+| <<plugins-{type}s-{plugin}-max_inbound_message_body_size>> | <<number,number>> | No
 | <<plugins-{type}s-{plugin}-password>> |<<password,password>>|No
 | <<plugins-{type}s-{plugin}-port>> |<<number,number>>|No
 | <<plugins-{type}s-{plugin}-prefetch_count>> |<<number,number>>|No
@@ -258,6 +259,16 @@ This is only relevant for direct or topic exchanges.
 
 * Routing keys are ignored on fanout exchanges.
 * Wildcards are not valid on direct exchanges.
+
+[id="plugins-{type}s-{plugin}-max_inbound_message_body_size"]
+===== `max_inbound_message_body_size`
+
+* Value type: <<number,number>>
+* Required: No
+* Default: Java client default
+
+Sets the maximum inbound message body size (in bytes) accepted by the RabbitMQ Java client.
+If not configured, the Java client's built-in default is used.
 
 [id="plugins-{type}s-{plugin}-metadata_enabled"]
 ===== `metadata_enabled`
