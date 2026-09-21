@@ -1,4 +1,8 @@
+## 7.4.3
+  - Downgrade march_hare dependency to 4.8 [#85](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/85)
+
 ## 7.4.2
+  - DO NOT USE this version because it includes fat netty JARs, which impact to netty based plugin behaviors  
   - Upgrade march_hare dependency to 4.9+ [#84](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/84)
 
 ## 7.4.1
