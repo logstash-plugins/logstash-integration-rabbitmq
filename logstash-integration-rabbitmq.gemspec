@@ -44,7 +44,7 @@ Gem::Specification.new do |s|
 
   s.add_runtime_dependency 'logstash-codec-json'
 
-  s.add_runtime_dependency 'march_hare', '< 4.8' # IMPORTANT!: we should avoid the versions (example 4.9) include netty fat JARs
+  s.add_runtime_dependency 'march_hare', ['~> 4.8.0'] # IMPORTANT!: we should avoid the versions (example 4.9) include netty fat JARs
   s.add_runtime_dependency 'stud', '~> 0.0.22'
   s.add_runtime_dependency 'back_pressure', '~> 1.0'
 
