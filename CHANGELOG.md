@@ -1,3 +1,6 @@
+## 7.4.2
+  - Upgrade march_hare dependency to 4.9+ [#84](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/84)
+
 ## 7.4.1
   - Improve thread safety to avoid race conditions during shutdown and integration tests. [#67](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/66)
 
