@@ -3,4 +3,7 @@ Gemfile.lock
 .bundle
 vendor
 .idea
+.gradle
+build/
+lib/logstash-integration-rabbitmq_jars.rb
 

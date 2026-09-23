@@ -7,8 +7,8 @@ Gem::Specification.new do |s|
                       "using $LS_HOME/bin/logstash-plugin install gemname. This gem is not a stand-alone program."
   s.authors         = ["Elastic"]
   s.email           = 'info@elastic.co'
-  s.homepage        = "http://www.elastic.co/guide/en/logstash/current/index.html"
-  s.require_paths   = ["lib"]
+  s.homepage        = "https://www.elastic.co/logstash"
+  s.require_paths   = %w[lib vendor/jar-dependencies]
 
   # Files
   s.files = Dir.glob(%w(
@@ -44,7 +44,6 @@ Gem::Specification.new do |s|
 
   s.add_runtime_dependency 'logstash-codec-json'
 
-  s.add_runtime_dependency 'march_hare', ['~> 4.8.0'] # IMPORTANT!: we should avoid the versions (example 4.9) include netty fat JARs
   s.add_runtime_dependency 'stud', '~> 0.0.22'
   s.add_runtime_dependency 'back_pressure', '~> 1.0'
 

@@ -10,13 +10,14 @@ require 'back_pressure'
 # Relevant links:
 #
 # * http://www.rabbitmq.com/[RabbitMQ]
-# * http://rubymarchhare.info[March Hare]
 module LogStash
   module Outputs
     class RabbitMQ < LogStash::Outputs::Base
 
       java_import java.util.concurrent.TimeoutException
       java_import com.rabbitmq.client.AlreadyClosedException
+      java_import com.rabbitmq.client.ShutdownSignalException
+      java_import com.rabbitmq.client.AMQP
 
       include LogStash::PluginMixins::RabbitMQConnection
 
@@ -54,7 +55,6 @@ module LogStash
         @hare_info.exchange = declare_exchange!(@hare_info.channel, @exchange, @exchange_type, @durable)
         # The connection close should close all channels, so it is safe to store thread locals here without closing them
         @thread_local_channel = java.lang.ThreadLocal.new
-        @thread_local_exchange = java.lang.ThreadLocal.new
 
         @gated_executor = back_pressure_provider_for_connection(@hare_info.connection)
       end
@@ -74,28 +74,21 @@ module LogStash
         routing_key = event.sprintf(@key)
         message_properties = @message_properties_template.build(event)
         @gated_executor.execute do
-          local_exchange.publish(message, :routing_key => routing_key, :properties => message_properties)
+          local_channel.basicPublish(@hare_info.exchange, routing_key,
+                                     build_amqp_properties(message_properties),
+                                     message.to_java_bytes)
         end
-      rescue MarchHare::Exception, IOError, AlreadyClosedException, TimeoutException => e
+      rescue ShutdownSignalException, AlreadyClosedException, TimeoutException, IOError, java.io.IOException => e
         @logger.error("Error while publishing, will retry", error_details(e, backtrace: true))
 
         sleep_for_retry
         retry
       end
 
-      def local_exchange
-        exchange = @thread_local_exchange.get
-        if !exchange
-          exchange = declare_exchange!(local_channel, @exchange, @exchange_type, @durable)
-          @thread_local_exchange.set(exchange)
-        end
-        exchange
-      end
-
       def local_channel
         channel = @thread_local_channel.get
-        if !channel
-          channel = @hare_info.connection.create_channel
+        unless channel
+          channel = @hare_info.connection.createChannel
           @thread_local_channel.set(channel)
         end
         channel
@@ -107,27 +100,79 @@ module LogStash
 
       private
 
+      # Implements com.rabbitmq.client.BlockedListener to hook connection-blocked
+      # notifications into a BackPressure::GatedExecutor.
+      class BlockedListenerImpl
+        include Java::ComRabbitmqClient::BlockedListener
+
+        def initialize(on_blocked, on_unblocked)
+          @on_blocked   = on_blocked
+          @on_unblocked = on_unblocked
+        end
+
+        def handleBlocked(reason)
+          @on_blocked.call(reason)
+        end
+
+        def handleUnblocked
+          @on_unblocked.call
+        end
+      end
+
+      # Implements com.rabbitmq.client.RecoveryListener to hook automatic-recovery
+      # notifications into a BackPressure::GatedExecutor.
+      class RecoveryListenerImpl
+        include Java::ComRabbitmqClient::RecoveryListener
+
+        def initialize(on_recovery_started, on_recovery)
+          @on_recovery_started = on_recovery_started
+          @on_recovery         = on_recovery
+        end
+
+        def handleRecoveryStarted(recoverable)
+          @on_recovery_started.call
+        end
+
+        def handleRecovery(recoverable)
+          @on_recovery.call
+        end
+      end
+
       # When the other end of a RabbitMQ connection is either unwilling or unable to continue reading bytes from
       # its underlying TCP stream, the connection is flagged as "blocked", but attempts to publish onto exchanges
       # using the connection will not block in the client.
       #
       # Here we hook into notifications of connection-blocked state to set up a `BackPressure::GatedExecutor`,
       # which is used elsewhere to prevent runaway writes when publishing to an exchange on a blocked connection.
-      def back_pressure_provider_for_connection(march_hare_connection)
+      def back_pressure_provider_for_connection(connection)
         BackPressure::GatedExecutor.new(description: "RabbitMQ[#{self.id}]", logger: logger).tap do |executor|
-          march_hare_connection.on_blocked do |reason|
-            executor.engage_back_pressure("connection flagged as blocked: `#{reason}`")
-          end
-          march_hare_connection.on_unblocked do
-            executor.remove_back_pressure('connection flagged as unblocked')
-          end
-          march_hare_connection.on_recovery_start do
-            executor.engage_back_pressure("connection is being recovered")
-          end
-          march_hare_connection.on_recovery do
-            executor.remove_back_pressure('connection recovered')
+          connection.addBlockedListener(BlockedListenerImpl.new(
+            proc { |reason| executor.engage_back_pressure("connection flagged as blocked: `#{reason}`") },
+            proc { executor.remove_back_pressure('connection flagged as unblocked') }
+          ))
+          if @automatic_recovery && connection.is_a?(Java::ComRabbitmqClient::Recoverable)
+            connection.addRecoveryListener(RecoveryListenerImpl.new(
+              proc { executor.engage_back_pressure("connection is being recovered") },
+              proc { executor.remove_back_pressure('connection recovered') }
+            ))
           end
         end
+      end
+
+      def build_amqp_properties(props)
+        builder = AMQP::BasicProperties::Builder.new
+        builder.deliveryMode(props[:persistent] ? 2 : 1) if props.key?(:persistent)
+        builder.priority(props[:priority].to_i)          if props.key?(:priority)
+        builder.contentType(props[:content_type])        if props.key?(:content_type)
+        builder.contentEncoding(props[:content_encoding]) if props.key?(:content_encoding)
+        builder.correlationId(props[:correlation_id].to_s) if props.key?(:correlation_id)
+        builder.replyTo(props[:reply_to])                if props.key?(:reply_to)
+        builder.expiration(props[:expiration].to_s)      if props.key?(:expiration)
+        builder.messageId(props[:message_id].to_s)       if props.key?(:message_id)
+        builder.type(props[:type])                       if props.key?(:type)
+        builder.userId(props[:user_id])                  if props.key?(:user_id)
+        builder.appId(props[:app_id])                    if props.key?(:app_id)
+        builder.build
       end
 
       ##
