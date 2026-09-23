@@ -10,7 +10,7 @@ module LogStash
     # The default settings will create an entirely transient queue and listen for all messages by default.
     # If you need durability or any other advanced settings, please set the appropriate options
     #
-    # This plugin uses the http://rubymarchhare.info/[March Hare] library
+    # This plugin uses the https://www.rabbitmq.com/client-libraries/java-api-guide[RabbitMQ Java client]
     # for interacting with the RabbitMQ server. Most configuration options
     # map directly to standard RabbitMQ and AMQP concepts. The
     # https://www.rabbitmq.com/amqp-0-9-1-reference.html[AMQP 0-9-1 reference guide]
@@ -191,7 +191,7 @@ module LogStash
         declare_queue!
         bind_exchange!
         @poison_latch = CountDownLatch.new(1)
-        @hare_info.channel.prefetch = @prefetch_count
+        @hare_info.channel.basicQos(@prefetch_count)
       rescue => e
         # when encountering an exception during shut-down,
         # re-raise the exception instead of retrying
@@ -222,7 +222,7 @@ module LogStash
             @logger.info? && @logger.info("Declaring exchange '#{@exchange}' with type #{@exchange_type}")
             @hare_info.exchange = declare_exchange!(@hare_info.channel, @exchange, @exchange_type, @durable)
           end
-          @hare_info.queue.bind(@exchange, :routing_key => @key)
+          @hare_info.channel.queueBind(@hare_info.queue, @exchange, @key)
         end
       end
 
@@ -231,24 +231,37 @@ module LogStash
       end
 
       def declare_queue
-        @hare_info.channel.queue(@queue,
-                                 :durable     => @durable,
-                                 :auto_delete => @auto_delete,
-                                 :exclusive   => @exclusive,
-                                 :passive     => @passive,
-                                 :arguments   => @arguments)
+        if @passive
+          @hare_info.channel.queueDeclarePassive(@queue).getQueue
+        else
+          args = @arguments.empty? ? nil : java.util.HashMap.new(@arguments)
+          @hare_info.channel.queueDeclare(@queue, @durable, @exclusive, @auto_delete, args).getQueue
+        end
       end
 
       def consume!
-        @consumer = @hare_info.queue.build_consumer(:on_cancellation => Proc.new { on_cancellation }) do |metadata, data|
-          @internal_queue.put [metadata, data]
-        end
+        @consumer_cancelled = java.util.concurrent.atomic.AtomicBoolean.new(false)
+        @consumer_tag = nil
+
+        deliver_callback = proc { |consumer_tag, delivery|
+          info = DeliveryInfo.new(consumer_tag, delivery.getEnvelope, delivery.getProperties)
+          data = String.from_java_bytes(delivery.getBody)
+          @internal_queue.put([info, data])
+        }
+
+        cancel_callback = proc { |consumer_tag|
+          @consumer_cancelled.set(true)
+          on_cancellation
+        }
 
         begin
-          @hare_info.queue.subscribe_with(@consumer, :manual_ack => @ack)
+          @consumer_tag = @hare_info.channel.basicConsume(
+            @hare_info.queue, !@ack,
+            deliver_callback.to_java(com.rabbitmq.client.DeliverCallback),
+            cancel_callback.to_java(com.rabbitmq.client.CancelCallback)
+          )
         rescue => e
           @logger.warn("Could not subscribe to queue, will retry in #{@subscription_retry_interval_seconds} seconds", error_details(e, :queue => @queue))
-
           sleep @subscription_retry_interval_seconds
           retry
         end
@@ -263,7 +276,7 @@ module LogStash
           payload = @internal_queue.poll(10, TimeUnit::MILLISECONDS)
           if !payload  # Nothing in the queue
             if last_delivery_tag # And we have unacked stuff
-              @hare_info.channel.ack(last_delivery_tag, true) if @ack
+              @hare_info.channel.basicAck(last_delivery_tag, true) if @ack
               i=0
               last_delivery_tag = nil
             end
@@ -288,7 +301,7 @@ module LogStash
           i += 1
 
           if i >= @prefetch_count
-            @hare_info.channel.ack(metadata.delivery_tag, true) if @ack
+            @hare_info.channel.basicAck(metadata.delivery_tag, true) if @ack
             i = 0
             last_delivery_tag = nil
           else
@@ -325,33 +338,33 @@ module LogStash
       end
 
       def shutdown_consumer
-        # There are two possible flows to shutdown consumers. When the plugin is the one shutting down, it should send a channel
-        # cancellation message by invoking channel.basic_cancel(consumer_tag) and waiting for the consumer to terminate
-        # (broker replies with an basic.cancel-ok). This back and forth is handled by MarchHare. On the other hand, when the broker
-        # requests the client to shutdown (eg. due to queue deletion). It sends to the client a basic.cancel message, which is handled
-        # internally by the client, unregistering the consumer and then invoking the :on_cancellation callback. In that case, the plugin
-        # should not do anything as the consumer is already cancelled/unregistered.
-        return if !@consumer || @consumer.cancelled? || @consumer.terminated?
+        # There are two possible flows to shutdown consumers. When the plugin is the one shutting down, it should send a
+        # channel cancellation message by invoking basicCancel(consumer_tag) and waiting for the cancel-ok from the broker.
+        # basicCancel is synchronous and blocks until cancel-ok is received, so after it returns the consumer is done.
+        # On the other hand, when the broker requests the client to shutdown (e.g. due to queue deletion), it sends a
+        # basic.cancel message handled internally by the client, which sets the @consumer_cancelled flag and invokes the
+        # cancel callback. In that case the plugin should not attempt another cancellation.
+        return unless @consumer_tag
+        return if @consumer_cancelled.get
 
-        @hare_info.channel.basic_cancel(@consumer.consumer_tag)
-        connection = @hare_info.connection
-        until @consumer.terminated?
-          @logger.info("Waiting for RabbitMQ consumer to terminate before stopping", url: connection_url(connection))
-          sleep 1
-        end
+        @hare_info.channel.basicCancel(@consumer_tag)
+      rescue => e
+        @logger.debug("Exception cancelling consumer", error_details(e))
+      ensure
+        @consumer_tag = nil
       end
 
       def on_cancellation
         if !stop? # If this isn't already part of a regular stop
           connection = @hare_info.connection
-          @logger.info("Received cancellation, shutting down", url: connection_url(connection))
+          @logger.info("Received cancellation, shutting down", :url => connection_url(connection))
           stop
         end
       end
 
       private
       def get_headers(metadata)
-	metadata.headers || {}
+        metadata.headers || {}
       end
 
       private

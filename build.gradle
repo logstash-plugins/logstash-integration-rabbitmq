@@ -39,7 +39,8 @@ java {
   sourceCompatibility = JavaVersion.VERSION_11
 }
 
-String amqpClientVersion = '5.21.0'
+String amqpClientVersion = '5.35.0' // 5.27.0
+String nettyVersion = '4.1.138.Final'
 
 repositories {
     mavenCentral()
@@ -47,8 +48,14 @@ repositories {
 
 dependencies {
     implementation("com.rabbitmq:amqp-client:${amqpClientVersion}") {
-        exclude group: 'org.slf4j'
+        exclude group: 'org.slf4j'  // Logstash provides SLF4J
+        exclude group: 'io.netty'   // managed explicitly below to pin to Logstash-aligned version
     }
+    // Netty pinned to the same version Logstash ships; amqp-client's NettyUtils detects 4.1.x at
+    // startup and falls back from MultiThreadIoEventLoopGroup (4.2+) to NioEventLoopGroup (4.1.x).
+    // Declaring netty-handler pulls in the full core stack transitively:
+    // netty-codec, netty-transport, netty-buffer, netty-common, netty-resolver
+    implementation "io.netty:netty-handler:${nettyVersion}"
 }
 
 task generateGemJarRequiresFile {

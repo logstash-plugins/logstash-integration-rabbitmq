@@ -27,112 +27,60 @@ describe LogStash::PluginMixins::RabbitMQConnection do
   }
   let(:hare_info) { instance.instance_variable_get(:@hare_info) }
 
-  shared_examples_for 'it sets the addresses correctly' do
-    let(:file) { Stud::Temporary.file }
-    let(:path) { file.path }
-    let(:host) {%w(host01 host02 host03)}
+  describe "addresses_from_hosts_and_port" do
+    let(:hosts) { %w(host01 host02 host03) }
 
-    it "should set addresses to the expected value" do
-      host.each_with_index do |each_host, index|
-        expect(instance.rabbitmq_settings[:addresses][index]).to eql("#{each_host}:#{port}")
-      end
+    it "should append the port to each host" do
+      result = instance.addresses_from_hosts_and_port(hosts, 5672)
+      expect(result).to eql(%w(host01:5672 host02:5672 host03:5672))
     end
 
     it "should insert the correct number of address entries" do
-      expect(instance.rabbitmq_settings[:addresses].length).to eql(host.count)
-    end
-  end
-
-  describe "rabbitmq_settings" do
-    let(:file) { Stud::Temporary.file }
-    let(:path) { file.path }
-    after { File.unlink(path)}
-
-    let(:rabbitmq_settings) { super().merge({"connection_timeout" => 123,
-                                           "heartbeat" => 456,
-                                           "ssl" => true,
-                                           "ssl_version" => "TLSv1.1",
-                                           "ssl_certificate_path" => path,
-                                           "ssl_certificate_password" => "123"}) }
-
-    it "should set the timeout to the expected value" do
-      expect(instance.rabbitmq_settings[:connection_timeout]).to eql(rabbitmq_settings["connection_timeout"])
+      result = instance.addresses_from_hosts_and_port(hosts, 5672)
+      expect(result.length).to eql(hosts.count)
     end
 
-    it "should set heartbeat to the expected value" do
-      expect(instance.rabbitmq_settings[:requested_heartbeat]).to eql(rabbitmq_settings["heartbeat"])
+    it "should not append port when host already contains a port" do
+      hosts_with_port = %w(host01:4444 host02:4445 host03:4446)
+      result = instance.addresses_from_hosts_and_port(hosts_with_port, 5672)
+      expect(result).to eql(%w(host01:4444 host02:4445 host03:4446))
     end
-
-    it "should set tls to the expected value" do
-      expect(instance.rabbitmq_settings[:tls]).to eql("TLSv1.1")
-    end
-
-    it "should set tls_certificate_path to the expected value" do
-      expect(instance.rabbitmq_settings[:tls_certificate_path]).to eql(rabbitmq_settings["ssl_certificate_path"])
-    end
-
-    it "should set tls_certificate_password to the expected value" do
-      expect(instance.rabbitmq_settings[:tls_certificate_password]).to eql(rabbitmq_settings["ssl_certificate_password"])
-    end
-
-    it_behaves_like 'it sets the addresses correctly'
 
     context 'with a custom port' do
       let(:port) { 123 }
-      let(:rabbitmq_settings) { super().merge({"port" => port})}
 
-      it_behaves_like 'it sets the addresses correctly'
-    end
-  end
-
-  describe "ssl enabled, but no verification" do
-    let(:rabbitmq_settings) { super().merge({"connection_timeout" => 123,
-                                           "heartbeat" => 456,
-                                           "ssl" => true}) }
-
-    it "should not have any certificates set" do
-      expect(instance.rabbitmq_settings[:tls_certificate_password]).to be nil
-      expect(instance.rabbitmq_settings[:tls_certificate_path]).to be nil
-    end
-
-  end
-
-  describe "rabbitmq_settings with multiple hosts" do
-    it_behaves_like 'it sets the addresses correctly'
-
-    context 'with a custom port'  do
-      let(:port) { 999 }
-      let(:rabbitmq_settings) { super().merge({"port" => port})}
-
-      it_behaves_like 'it sets the addresses correctly'
-    end
-
-    context 'when ports are set in the host definition' do
-      let(:host) { %w(host01:4444 host02:4445 host03:4446)}
-
-      it "should set the address correctly" do
-        expect(instance.rabbitmq_settings[:addresses][0]).to eql("host01:4444")
-        expect(instance.rabbitmq_settings[:addresses][1]).to eql("host02:4445")
-        expect(instance.rabbitmq_settings[:addresses][2]).to eql("host03:4446")
+      it "should use the custom port" do
+        result = instance.addresses_from_hosts_and_port(hosts, port)
+        hosts.each_with_index do |each_host, index|
+          expect(result[index]).to eql("#{each_host}:#{port}")
+        end
       end
     end
   end
 
   context "when connected" do
-    let(:connection) { double("MarchHare Connection") }
-    let(:channel) { double("Channel") }
+    let(:factory)    { double("ConnectionFactory") }
+    let(:connection) { double("AMQP Connection") }
+    let(:channel)    { double("Channel") }
+    let(:address)    { double("InetAddress") }
 
     before do
       allow(instance).to receive(:connect!).and_call_original
-      allow(::MarchHare).to receive(:connect).and_return(connection)
-      allow(connection).to receive(:create_channel).and_return(channel)
-      allow(connection).to receive(:on_blocked)
-      allow(connection).to receive(:on_unblocked)
-      allow(connection).to receive(:on_shutdown)
-      allow(connection).to receive(:host).and_return host
-      allow(connection).to receive(:port).and_return port
-      allow(connection).to receive(:vhost).and_return nil
-      allow(connection).to receive(:user).and_return 'guest'
+      allow(ConnectionFactory).to receive(:new).and_return(factory)
+      allow(factory).to receive(:setUsername)
+      allow(factory).to receive(:setPassword)
+      allow(factory).to receive(:setVirtualHost)
+      allow(factory).to receive(:setRequestedHeartbeat)
+      allow(factory).to receive(:setConnectionTimeout)
+      allow(factory).to receive(:setAutomaticRecoveryEnabled)
+      allow(factory).to receive(:setExceptionHandler)
+      allow(factory).to receive(:newConnection).and_return(connection)
+      allow(connection).to receive(:createChannel).and_return(channel)
+      allow(connection).to receive(:addShutdownListener)
+      allow(connection).to receive(:isOpen).and_return(true)
+      allow(connection).to receive(:getAddress).and_return(address)
+      allow(connection).to receive(:getPort).and_return(port)
+      allow(address).to receive(:getHostName).and_return(host)
 
       instance.register
     end
@@ -168,19 +116,18 @@ describe LogStash::PluginMixins::RabbitMQConnection do
 
   # If the connection encounters an exception during its initial
   # connection attempt we must handle that. Subsequent errors should be
-  # handled by the automatic retry mechanism built-in to MarchHare
+  # handled by the automatic retry mechanism built-in to the Java client.
   describe "initial connection exceptions" do
     subject { instance }
 
     before do
       allow(subject).to receive(:sleep_for_retry)
 
-
       i = 0
       allow(subject).to receive(:connect) do
         i += 1
         if i == 1
-          raise(MarchHare::ConnectionRefused, "Error!")
+          raise(java.io.IOException, "Error!")
         else
           double("connection")
         end

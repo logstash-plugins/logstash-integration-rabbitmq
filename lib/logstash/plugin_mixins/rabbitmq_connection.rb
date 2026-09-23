@@ -1,8 +1,12 @@
 # encoding: utf-8
 require "logstash/namespace"
-require "march_hare"
+require "logstash-integration-rabbitmq_jars"
 require "java"
 require "stud/interval"
+
+java_import com.rabbitmq.client.ConnectionFactory
+java_import com.rabbitmq.client.Address
+java_import com.rabbitmq.client.ShutdownListener
 
 # Common functionality for the rabbitmq input/output
 module LogStash
@@ -90,47 +94,14 @@ module LogStash
         @hare_info.connection.close if connection_open?
       end
 
-      def rabbitmq_settings
-        return @rabbitmq_settings if @rabbitmq_settings
-
-
-        s = {
-          :vhost => @vhost,
-          :addresses => addresses_from_hosts_and_port(@host, @port),
-          :username  => @user,
-          :automatic_recovery => @automatic_recovery,
-          :password => @password ? @password.value : "guest",
-        }
-
-        s[:connection_timeout] = @connection_timeout || 0
-        s[:requested_heartbeat] = @heartbeat || 0
-
-        if @ssl
-          s[:tls] = @ssl_version
-
-          cert_path = @ssl_certificate_path
-          cert_pass = @ssl_certificate_password.value if @ssl_certificate_password
-
-          if !!cert_path ^ !!cert_pass
-            raise LogStash::ConfigurationError, "RabbitMQ requires both ssl_certificate_path AND ssl_certificate_password to be set!"
-          end
-
-          s[:tls_certificate_path] = cert_path
-          s[:tls_certificate_password] = cert_pass
-        end
-
-        @rabbitmq_settings = s
-      end
-
       def addresses_from_hosts_and_port(hosts, port)
         hosts.map {|host| host.include?(':') ? host : "#{host}:#{port}"}
       end
 
-
       def connect!
         @hare_info = connect() unless @hare_info # Don't duplicate the conn!
-      rescue MarchHare::Exception, java.io.IOException => e
-        message = if e.message.empty? && e.is_a?(java.io.IOException)
+      rescue java.io.IOException, java.util.concurrent.TimeoutException, com.rabbitmq.client.ShutdownSignalException => e
+        message = if e.message.to_s.empty? && e.is_a?(java.io.IOException)
           # IOException with an empty message is probably an instance of
           # these problems:
           # https://github.com/logstash-plugins/logstash-output-rabbitmq/issues/52
@@ -151,59 +122,80 @@ module LogStash
       end
 
       def channel_open?
-        @hare_info && @hare_info.channel && @hare_info.channel.open?
+        @hare_info && @hare_info.channel && @hare_info.channel.isOpen
       end
 
       def connection_open?
-        @hare_info && @hare_info.connection && @hare_info.connection.open?
+        @hare_info && @hare_info.connection && @hare_info.connection.isOpen
       end
 
       private
 
       def declare_exchange!(channel, exchange, exchange_type, durable)
         @logger.debug? && @logger.debug("Declaring an exchange", :name => exchange, :type => exchange_type, :durable => durable)
-        channel.exchange(exchange, :type => exchange_type.to_sym, :durable => durable)
+        channel.exchangeDeclare(exchange, exchange_type, durable)
+        exchange
       rescue => e
         @logger.error("Could not declare exchange", error_details(e, :exchange => exchange, :type => exchange_type, :durable => durable))
-
         raise e
       end
 
       def connect
-        @logger.debug? && @logger.debug("Connecting to RabbitMQ", rabbitmq_settings)
+        @logger.debug? && @logger.debug("Connecting to RabbitMQ", :hosts => @host, :port => @port, :vhost => @vhost)
 
-        # disable MarchHare's attempt to provide a "better" exception logging experience:
-        settings = rabbitmq_settings.merge :exception_handler => com.rabbitmq.client.impl.ForgivingExceptionHandler.new
-        connection = MarchHare.connect(settings) # MarchHare::Session.connect
-        # we could pass down the :logger => logger but that adds an extra:
-        #   `logger.info("Using TLS/SSL version #{tls}")` which isn't useful
-        # the rest of MH::Session logging is mostly debug level details
-        #
-        # NOTE: effectively redirects MarchHare's default std-out logging to LS
-        #       (MARCH_HARE_LOG_LEVEL=debug no longer has an effect)
-        connection.instance_variable_set(:@logger, LoggerAdapter.new(logger))
+        factory = ConnectionFactory.new
+        factory.setUsername(@user)
+        factory.setPassword(@password.value)
+        factory.setVirtualHost(@vhost)
+        factory.setRequestedHeartbeat(@heartbeat || 0)
+        factory.setConnectionTimeout(@connection_timeout || 0)
+        factory.setAutomaticRecoveryEnabled(@automatic_recovery)
+        factory.setExceptionHandler(com.rabbitmq.client.impl.ForgivingExceptionHandler.new)
 
-        connection.on_shutdown do |conn, cause|
-           @logger.warn("RabbitMQ connection was closed", url: connection_url(conn), automatic_recovery: @automatic_recovery, cause: cause)
-        end
-        connection.on_blocked do
-          @logger.warn("RabbitMQ connection blocked - please check the RabbitMQ server logs", url: connection_url(connection))
-        end
-        connection.on_unblocked do
-          @logger.warn("RabbitMQ connection unblocked", url: connection_url(connection))
-        end
+        configure_ssl!(factory) if @ssl
 
-        channel = connection.create_channel
-        @logger.info("Connected to RabbitMQ", url: connection_url(connection))
+        addresses = addresses_from_hosts_and_port(@host, @port).map do |addr|
+          parts = addr.split(':')
+          Address.new(parts[0], parts[1].to_i)
+        end.to_java(Address)
 
+        connection = factory.newConnection(addresses)
+        connection.addShutdownListener(proc { |cause|
+          @logger.warn("RabbitMQ connection was closed",
+                       :url => connection_url(connection),
+                       :automatic_recovery => @automatic_recovery,
+                       :cause => cause.to_s)
+        }.to_java(ShutdownListener))
+
+        @logger.info("Connected to RabbitMQ", :url => connection_url(connection))
+
+        channel = connection.createChannel
         HareInfo.new(connection, channel)
       end
 
-      # Mostly used for printing debug logs
+      def configure_ssl!(factory)
+        if @ssl_certificate_path
+          cert_pass = @ssl_certificate_password.value if @ssl_certificate_password
+          raise LogStash::ConfigurationError, "RabbitMQ requires both ssl_certificate_path AND ssl_certificate_password to be set!" unless cert_pass
+
+          key_store = java.security.KeyStore.getInstance("PKCS12")
+          java.io.FileInputStream.new(@ssl_certificate_path).tap do |fis|
+            key_store.load(fis, cert_pass.to_java.toCharArray)
+          end
+          kmf = javax.net.ssl.KeyManagerFactory.getInstance("SunX509")
+          kmf.init(key_store, cert_pass.to_java.toCharArray)
+          ssl_context = javax.net.ssl.SSLContext.getInstance(@ssl_version)
+          ssl_context.init(kmf.getKeyManagers, nil, nil)
+          factory.useSslProtocol(ssl_context)
+        else
+          factory.useSslProtocol(@ssl_version)
+        end
+      end
+
       def connection_url(connection)
-        user_pass = connection.user ? "#{connection.user}:XXXXXX@" : ""
-        protocol = params["ssl"] ? "amqps" : "amqp"
-        "#{protocol}://#{user_pass}#{connection.host}:#{connection.port}#{connection.vhost}"
+        protocol = @ssl ? "amqps" : "amqp"
+        addr = connection.getAddress
+        "#{protocol}://#{@user}:XXXXXX@#{addr.getHostName}:#{connection.getPort}#{@vhost}"
       end
 
       def sleep_for_retry
@@ -212,39 +204,49 @@ module LogStash
 
       def error_details(e, info = {})
         details = info.merge(:exception => e.class, :message => e.message)
-        if e.is_a?(MarchHare::Exception) && e.cause
-          details[:cause] = e.cause # likely a Java exception
+        if e.is_a?(java.lang.Throwable) && e.cause
+          details[:cause] = e.cause
         end
         details[:backtrace] = e.backtrace if @logger.debug? || info[:backtrace] == true
         details
       end
 
-      # @private adapting MarchHare's Ruby Logger assumptions
-      class LoggerAdapter < SimpleDelegator
-
-        java_import java.lang.Throwable
-
-        [:trace, :debug, :info, :warn, :error, :fatal].each do |level|
-          # sample logging used by MarchHare that we're after:
-          #
-          #   rescue Exception => e
-          #     logger.error("Caught exception when recovering queue #{q.name}")
-          #     logger.error(e)
-          #   end
-          class_eval <<-RUBY, __FILE__, __LINE__
-            def #{level}(arg)
-              if arg.is_a?(Exception) || arg.is_a?(Throwable)
-                details = { :exception => arg.class }
-                details[:cause] = arg.cause if arg.cause
-                details[:backtrace] = arg.backtrace
-                __getobj__.#{level}(arg.message.to_s, details)
-              else
-                __getobj__.#{level}(arg) # String
-              end
-            end
-          RUBY
+      ##
+      # Wraps a raw AMQP delivery (envelope + properties) and the consumer tag into a
+      # single object whose interface matches what the input plugin expects.
+      class DeliveryInfo
+        def initialize(consumer_tag, envelope, properties)
+          @consumer_tag = consumer_tag
+          @envelope     = envelope
+          @properties   = properties
         end
 
+        def delivery_tag;     @envelope.getDeliveryTag;        end
+        def exchange;         @envelope.getExchange;           end
+        def routing_key;      @envelope.getRoutingKey;         end
+        def redeliver;        @envelope.isRedeliver;           end
+        def consumer_tag;     @consumer_tag;                   end
+        def app_id;           @properties.getAppId;            end
+        def cluster_id;       @properties.getClusterId;        end
+        def content_encoding; @properties.getContentEncoding;  end
+        def content_type;     @properties.getContentType;      end
+        def correlation_id;   @properties.getCorrelationId;    end
+        def delivery_mode;    @properties.getDeliveryMode;     end
+        def expiration;       @properties.getExpiration;       end
+        def message_id;       @properties.getMessageId;        end
+        def priority;         @properties.getPriority;         end
+        def reply_to;         @properties.getReplyTo;          end
+        def timestamp;        @properties.getTimestamp;        end  # java.util.Date
+        def type;             @properties.getType;             end
+        def user_id;          @properties.getUserId;           end
+
+        def headers
+          raw = @properties.getHeaders
+          return {} unless raw
+          raw.each_with_object({}) do |(k, v), acc|
+            acc[k] = v.respond_to?(:toString) ? v.toString : v
+          end
+        end
       end
 
     end
