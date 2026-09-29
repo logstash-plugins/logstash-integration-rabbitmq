@@ -1,3 +1,6 @@
+## 7.4.4
+  - Upgrades march_hare to consume 4.10+ [#87](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/87)
+
 ## 7.4.3
   - Downgrade march_hare dependency to 4.8 [#85](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/85)
 
