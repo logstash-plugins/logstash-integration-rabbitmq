@@ -138,13 +138,24 @@ module LogStash
       class MessagePropertiesTemplate
         ##
         # Creates a new `MessagePropertiesTemplate` from the provided `template`
-        # @param template [Hash{Symbol=>Object}]
+        # @param template [Hash{Symbol=>Object}]       
         def initialize(template)
-          constant_properties = template.reject { |_,v| templated?(v) }
-          variable_properties = template.select { |_,v| templated?(v) }
-
-          @constant_properties = normalize(constant_properties).freeze
+          constant_properties = template.reject { |_,v| templated?(v) } # ein hash von nicht-templated (reject) 'values' wobei templated heißt strings mit {%...
+          variable_properties = template.select { |_,v| templated?(v) } # der hash von templated 'values
           @variable_properties = variable_properties
+          @constant_properties = normalize(constant_properties)
+          
+          @variable_headers = nil
+
+          if @constant_properties[:headers]
+            constant_headers = constant_properties[:headers].reject { |_, v| templated?(v) }
+            @variable_headers = constant_properties[:headers].select { |_, v| templated?(v) }
+            @constant_properties[:headers] = constant_headers # overwrite headers with the constant ones
+            @constant_properties[:headers].freeze
+          end
+          @constant_properties.freeze
+          
+
         end
 
         ##
@@ -153,16 +164,30 @@ module LogStash
         # @param event [LogStash::Event]: the event with which to populated templated values, if any.
         # @return [Hash{Symbol=>Object}] a possibly-frozen properties hash for the provided `event`.
         def build(event)
-          return @constant_properties if @variable_properties.empty?
+          return @constant_properties if only_constant?
 
           properties = @variable_properties.each_with_object(@constant_properties.dup) do |(k,v), memo|
             memo.store(k, event.sprintf(v))
+          end
+
+          if !@variable_headers.nil?
+            variable_headers_transformed = @variable_headers.transform_values {|value| event.sprintf(value)}
+            properties[:headers] = properties[:headers].merge(variable_headers_transformed)
           end
 
           return normalize(properties)
         end
 
         private
+
+        ##
+        # Check wether template contains variable content that needs to be expanded.
+        #
+        # @api private
+        # @return [boolean]
+        def only_constant?()
+          return (@variable_properties.empty? & @variable_headers.nil?)
+        end
 
         ##
         # Normalize the provided property mapping with respect to the value types the underlying
