@@ -233,12 +233,11 @@ describe LogStash::Outputs::RabbitMQ do
           end
 
           before do
-            i = 0
-            allow(connection).to receive(:create_channel) do
-              i += 1
-              raise connection_closed if i == 2
-              i == 1 ? stale_channel : fresh_channel
-            end
+            allow(connection).to receive(:create_channel).and_invoke(
+              -> { stale_channel },
+              -> { raise connection_closed },
+              -> { fresh_channel }
+            )
 
             instance.send(:publish, event, encoded_event)
           end
