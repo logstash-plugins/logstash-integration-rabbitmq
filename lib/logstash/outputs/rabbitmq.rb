@@ -79,6 +79,11 @@ module LogStash
       rescue MarchHare::Exception, IOError, AlreadyClosedException, TimeoutException => e
         @logger.error("Error while publishing, will retry", error_details(e, backtrace: true))
 
+        # this reset allows `local_exchange` and `local_channel` to create new instances on the next call
+        if e.is_a?(MarchHare::ChannelAlreadyClosed) || e.is_a?(AlreadyClosedException)
+          @thread_local_exchange.remove
+          @thread_local_channel.remove
+        end
         sleep_for_retry
         retry
       end

@@ -167,6 +167,11 @@ describe LogStash::Outputs::RabbitMQ do
         context 'when it is a MarchHare exception' do
           let(:exception) { MarchHare::Exception }
           it_behaves_like 'recovers from exception gracefully'
+
+          it 'should reuse the existing channel' do
+            # once on register, once for the publishing thread
+            expect(connection).to have_received(:create_channel).twice
+          end
         end
 
         context 'when it is a MarchHare::ChannelAlreadyClosed' do
@@ -177,6 +182,74 @@ describe LogStash::Outputs::RabbitMQ do
         context 'when it is a TimeoutException' do
           let(:exception) { java.util.concurrent.TimeoutException.new }
           it_behaves_like 'recovers from exception gracefully'
+        end
+      end
+
+      context 'when the channel was closed' do
+        let(:stale_channel) { double("Stale channel") }
+        let(:stale_exchange) { double("Stale exchange") }
+        let(:fresh_channel) { double("Fresh channel") }
+        let(:fresh_exchange) { double("Fresh exchange") }
+
+        before do
+          allow(instance).to receive(:sleep_for_retry)
+          allow(stale_channel).to receive(:exchange).and_return(stale_exchange)
+          allow(fresh_channel).to receive(:exchange).and_return(fresh_exchange)
+          allow(stale_exchange).to receive(:publish).and_raise(MarchHare::ChannelAlreadyClosed)
+          allow(fresh_exchange).to receive(:publish)
+        end
+
+        context 'and the connection is still healthy' do
+          before do
+            allow(connection).to receive(:create_channel).and_return(stale_channel, fresh_channel)
+
+            instance.send(:publish, event, encoded_event)
+          end
+
+          it 'should declare the exchange on a new channel' do
+            expect(fresh_channel).to have_received(:exchange)
+          end
+
+          it 'should not publish to the closed exchange again' do
+            expect(stale_exchange).to have_received(:publish).once
+          end
+
+          it 'should send the message through the new exchange' do
+            expect(fresh_exchange).to have_received(:publish).with(encoded_event, anything).once
+          end
+
+          it 'should keep using the new exchange for subsequent events' do
+            instance.send(:publish, event, encoded_event)
+            expect(fresh_exchange).to have_received(:publish).twice
+          end
+        end
+
+        context 'and the connection is closed' do
+          # create_channel is a plain Java call, so it raises the unconverted Java exception
+          let(:connection_closed) do
+            com.rabbitmq.client.AlreadyClosedException.new(
+              com.rabbitmq.client.ShutdownSignalException.new(true, false, nil, nil)
+            )
+          end
+
+          before do
+            i = 0
+            allow(connection).to receive(:create_channel) do
+              i += 1
+              raise connection_closed if i == 2
+              i == 1 ? stale_channel : fresh_channel
+            end
+
+            instance.send(:publish, event, encoded_event)
+          end
+
+          it 'should retry until the channel can be created' do
+            expect(instance).to have_received(:sleep_for_retry).twice
+          end
+
+          it 'should send the message once the connection is back' do
+            expect(fresh_exchange).to have_received(:publish).with(encoded_event, anything).once
+          end
         end
       end
     end
