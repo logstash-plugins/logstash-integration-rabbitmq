@@ -17,6 +17,9 @@ module LogStash
 
       java_import java.util.concurrent.TimeoutException
       java_import com.rabbitmq.client.AlreadyClosedException
+      java_import com.rabbitmq.client.ShutdownSignalException
+
+      CONFIRM_TIMEOUT_MILLIS = 10_000
 
       include LogStash::PluginMixins::RabbitMQConnection
 
@@ -73,19 +76,26 @@ module LogStash
         raise ArgumentError, "No exchange set in HareInfo!!!" unless @hare_info.exchange
         routing_key = event.sprintf(@key)
         message_properties = @message_properties_template.build(event)
-        @gated_executor.execute do
-          local_exchange.publish(message, :routing_key => routing_key, :properties => message_properties)
-        end
-      rescue MarchHare::Exception, IOError, AlreadyClosedException, TimeoutException => e
-        @logger.error("Error while publishing, will retry", error_details(e, backtrace: true))
+        confirm = false
+        begin
+          @gated_executor.execute do
+            if confirm
+              publish_confirmed(message, routing_key, message_properties)
+            else
+              local_exchange.publish(message, :routing_key => routing_key, :properties => message_properties)
+            end
+          end
+        rescue MarchHare::Exception, IOError, AlreadyClosedException, TimeoutException => e
+          @logger.error("Error while publishing, will retry", error_details(e, backtrace: true))
 
-        # this reset allows `local_exchange` and `local_channel` to create new instances on the next call
-        if e.is_a?(MarchHare::ChannelAlreadyClosed) || e.is_a?(AlreadyClosedException)
-          @thread_local_exchange.remove
-          @thread_local_channel.remove
+          # the broker closed only this channel; connection-level closes are left to automatic recovery
+          if channel_level_close?(e)
+            discard_local_channel
+            confirm = true
+          end
+          sleep_for_retry
+          retry
         end
-        sleep_for_retry
-        retry
       end
 
       def local_exchange
@@ -111,6 +121,40 @@ module LogStash
       end
 
       private
+
+      def channel_level_close?(e)
+        signal = e.is_a?(ShutdownSignalException) ? e : e.cause
+        signal.is_a?(ShutdownSignalException) && !signal.hard_error?
+      end
+
+      def discard_local_channel
+        channel = @thread_local_channel.get
+        @thread_local_exchange.remove
+        @thread_local_channel.remove
+        discard_channel(channel) if channel
+      end
+
+      # unregistering keeps march_hare's automatic recovery from reopening the channel
+      def discard_channel(channel)
+        channel.close if channel.open?
+      rescue StandardError, java.lang.Exception => e
+        @logger.debug("Ignoring error while closing channel", error_details(e))
+      ensure
+        @hare_info.connection.unregister_channel(channel)
+      end
+
+      # publishes on a temporary confirm-mode channel so a rejected message is retried instead of lost
+      def publish_confirmed(message, routing_key, properties)
+        channel = @hare_info.connection.create_channel
+        begin
+          channel.confirm_select
+          exchange = declare_exchange!(channel, @exchange, @exchange_type, @durable)
+          exchange.publish(message, :routing_key => routing_key, :properties => properties)
+          raise MarchHare::Exception, "message was nacked by the broker" unless channel.wait_for_confirms(CONFIRM_TIMEOUT_MILLIS)
+        ensure
+          discard_channel(channel)
+        end
+      end
 
       # When the other end of a RabbitMQ connection is either unwilling or unable to continue reading bytes from
       # its underlying TCP stream, the connection is flagged as "blocked", but attempts to publish onto exchanges
