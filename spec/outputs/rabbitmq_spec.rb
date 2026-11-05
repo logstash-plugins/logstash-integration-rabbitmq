@@ -23,6 +23,16 @@ describe LogStash::Outputs::RabbitMQ do
   let(:instance) { klass.new(rabbitmq_settings) }
   let(:hare_info) { instance.instance_variable_get(:@hare_info) }
 
+  # march_hare converts AlreadyClosedException inside a rescue, so the Java exception becomes the `cause`
+  def channel_already_closed(hard:)
+    signal = com.rabbitmq.client.ShutdownSignalException.new(hard, false, nil, nil)
+    begin
+      raise com.rabbitmq.client.AlreadyClosedException.new(signal)
+    rescue java.lang.Exception
+      raise MarchHare::ChannelAlreadyClosed, "channel is already closed"
+    end
+  end
+
   shared_examples 'recovers from exception gracefully' do
     it 'should execute publish twice due to a retry' do
       expect(exchange).to have_received(:publish).twice
@@ -156,9 +166,12 @@ describe LogStash::Outputs::RabbitMQ do
           i = 0
           allow(instance).to receive(:connect!)
           allow(instance).to receive(:sleep_for_retry)
+          allow(connection).to receive(:unregister_channel)
           allow(exchange).to receive(:publish).with(any_args) do
             i += 1
-            raise exception if i == 1
+            if i == 1
+              exception.is_a?(Proc) ? exception.call : raise(exception)
+            end
           end
 
           instance.send(:publish, event, encoded_event)
@@ -167,16 +180,186 @@ describe LogStash::Outputs::RabbitMQ do
         context 'when it is a MarchHare exception' do
           let(:exception) { MarchHare::Exception }
           it_behaves_like 'recovers from exception gracefully'
+
+          it 'should reuse the existing channel' do
+            # once on register, once for the publishing thread
+            expect(connection).to have_received(:create_channel).twice
+          end
         end
 
-        context 'when it is a MarchHare::ChannelAlreadyClosed' do
+        context 'when it is a MarchHare::ChannelAlreadyClosed without a cause' do
           let(:exception) { MarchHare::ChannelAlreadyClosed }
           it_behaves_like 'recovers from exception gracefully'
+        end
+
+        context 'when it is a MarchHare::ChannelAlreadyClosed caused by a connection close' do
+          let(:exception) { -> { channel_already_closed(hard: true) } }
+          it_behaves_like 'recovers from exception gracefully'
+
+          it 'should leave the channel to automatic recovery' do
+            expect(connection).not_to have_received(:unregister_channel)
+          end
         end
 
         context 'when it is a TimeoutException' do
           let(:exception) { java.util.concurrent.TimeoutException.new }
           it_behaves_like 'recovers from exception gracefully'
+        end
+      end
+
+      context 'when the broker closed the channel' do
+        let(:stale_channel) { double("Stale channel") }
+        let(:stale_exchange) { double("Stale exchange") }
+        let(:stale_open) { false }
+        let(:stale_close_error) { nil }
+        let(:confirm_channel) { double("Confirm channel", confirm_select: nil, open?: true, close: nil) }
+        let(:confirm_exchange) { double("Confirm exchange", publish: nil) }
+        let(:fresh_channel) { double("Fresh channel") }
+        let(:fresh_exchange) { double("Fresh exchange", publish: nil) }
+        # outcome of each confirmed attempt: true (ack), false (nack) or a raised error
+        let(:confirm_results) { [proc { true }] }
+
+        before do
+          allow(instance).to receive(:sleep_for_retry)
+          allow(connection).to receive(:unregister_channel)
+          allow(stale_channel).to receive(:exchange).and_return(stale_exchange)
+          allow(stale_channel).to receive(:open?).and_return(stale_open)
+          allow(stale_channel).to receive(:close) { raise stale_close_error if stale_close_error }
+          allow(stale_exchange).to receive(:publish) { channel_already_closed(hard: false) }
+          allow(confirm_channel).to receive(:exchange).and_return(confirm_exchange)
+          allow(confirm_channel).to receive(:wait_for_confirms).and_invoke(*confirm_results)
+          allow(fresh_channel).to receive(:exchange).and_return(fresh_exchange)
+          confirm_channels = [confirm_channel] * confirm_results.size
+          allow(connection).to receive(:create_channel).and_return(stale_channel, *confirm_channels, fresh_channel)
+
+          instance.send(:publish, event, encoded_event)
+        end
+
+        it 'should not publish to the closed exchange again' do
+          expect(stale_exchange).to have_received(:publish).once
+        end
+
+        it 'should unregister the closed channel so recovery cannot reopen it' do
+          expect(connection).to have_received(:unregister_channel).with(stale_channel)
+        end
+
+        it 'should not close a channel that is already closed' do
+          expect(stale_channel).not_to have_received(:close)
+        end
+
+        it 'should retry the message on a channel in confirm mode' do
+          expect(confirm_channel).to have_received(:confirm_select).once
+          expect(confirm_channel).to have_received(:exchange).once
+          expect(confirm_exchange).to have_received(:publish).with(encoded_event, anything).once
+          expect(confirm_channel).to have_received(:wait_for_confirms).with(10_000)
+        end
+
+        it 'should close and unregister the confirm channel' do
+          expect(confirm_channel).to have_received(:close).once
+          expect(connection).to have_received(:unregister_channel).with(confirm_channel)
+        end
+
+        it 'should publish the next event on a new regular channel' do
+          instance.send(:publish, event, encoded_event)
+
+          expect(fresh_channel).to have_received(:exchange)
+          expect(fresh_exchange).to have_received(:publish).with(encoded_event, anything).once
+          expect(confirm_channel).to have_received(:confirm_select).once
+        end
+
+        context 'and the broker nacks the confirmed retry' do
+          let(:confirm_results) { [proc { false }, proc { true }] }
+
+          it 'should keep retrying with confirms until the message is acked' do
+            expect(confirm_exchange).to have_received(:publish).with(encoded_event, anything).twice
+            expect(instance).to have_received(:sleep_for_retry).twice
+          end
+
+          it 'should discard every confirm channel' do
+            expect(confirm_channel).to have_received(:close).twice
+            expect(connection).to have_received(:unregister_channel).with(confirm_channel).twice
+          end
+        end
+
+        context 'and the broker also closes the confirm channel' do
+          let(:confirm_results) { [proc { channel_already_closed(hard: false) }, proc { true }] }
+
+          it 'should keep retrying with confirms until the message is acked' do
+            expect(stale_exchange).to have_received(:publish).once
+            expect(confirm_exchange).to have_received(:publish).with(encoded_event, anything).twice
+            expect(instance).to have_received(:sleep_for_retry).twice
+          end
+        end
+
+        context 'and the closed channel still reports being open' do
+          let(:stale_open) { true }
+          let(:stale_close_error) { java.io.IOException.new("channel is already closed") }
+
+          it 'should ignore the error when closing it and still unregister it' do
+            expect(stale_channel).to have_received(:close)
+            expect(connection).to have_received(:unregister_channel).with(stale_channel)
+            expect(confirm_exchange).to have_received(:publish).with(encoded_event, anything).once
+          end
+        end
+      end
+
+      context 'when the connection was closed' do
+        let(:stale_exchange) { double("Stale exchange") }
+        let(:fresh_channel) { double("Fresh channel") }
+        let(:fresh_exchange) { double("Fresh exchange", publish: nil) }
+
+        before do
+          allow(instance).to receive(:sleep_for_retry)
+          allow(connection).to receive(:unregister_channel)
+          allow(fresh_channel).to receive(:exchange).and_return(fresh_exchange)
+        end
+
+        context 'while publishing' do
+          before do
+            i = 0
+            allow(exchange).to receive(:publish) do
+              i += 1
+              channel_already_closed(hard: true) if i == 1
+            end
+
+            instance.send(:publish, event, encoded_event)
+          end
+
+          it 'should retry on the same channel once it is recovered' do
+            expect(exchange).to have_received(:publish).with(encoded_event, anything).twice
+            # once on register, once for the publishing thread
+            expect(connection).to have_received(:create_channel).twice
+          end
+
+          it 'should not discard the channel' do
+            expect(connection).not_to have_received(:unregister_channel)
+          end
+        end
+
+        context 'while creating the channel' do
+          # create_channel is a plain Java call, so it raises the unconverted Java exception
+          let(:connection_closed) do
+            com.rabbitmq.client.AlreadyClosedException.new(
+              com.rabbitmq.client.ShutdownSignalException.new(true, false, nil, nil)
+            )
+          end
+
+          before do
+            allow(connection).to receive(:create_channel).and_invoke(
+              -> { raise connection_closed },
+              -> { fresh_channel }
+            )
+
+            instance.send(:publish, event, encoded_event)
+          end
+
+          it 'should retry until the channel can be created' do
+            expect(instance).to have_received(:sleep_for_retry).once
+          end
+
+          it 'should send the message once the connection is back' do
+            expect(fresh_exchange).to have_received(:publish).with(encoded_event, anything).once
+          end
         end
       end
     end
