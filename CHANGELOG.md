@@ -1,3 +1,6 @@
+## 7.4.5
+  - Recover from broker-closed output channels without leaking channels or losing events [#88](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/88)
+
 ## 7.4.4
   - Upgrades march_hare to consume 4.10+ [#87](https://github.com/logstash-plugins/logstash-integration-rabbitmq/pull/87)
 
